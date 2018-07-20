@@ -7,9 +7,9 @@
 #include<stdlib.h>
 #include <string.h>
 
-#include "..\inlcudes\config.h"
-#include "..\inlcudes\list_api.h"
-#include "..\inlcudes\os_api.h"
+#include "../inlcudes/config.h"
+#include "../inlcudes/list_api.h"
+#include "../inlcudes/os_task_api.h"
 
 OS_SCHEDULE_CTRL_S g_osScheduleCtrl;
 

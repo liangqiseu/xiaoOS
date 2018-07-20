@@ -2,9 +2,8 @@
 /* name:os_api.h                                                        */
 /* create data:2017/8/15                                                */
 /************************************************************************/
-#ifndef OS_API_H
-#define OS_API_H
-
+#ifndef OS_TASK_API_H
+#define OS_TASK_API_H
 
 #include "config.h"
 
