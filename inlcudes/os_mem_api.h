@@ -7,13 +7,6 @@
 #define OS_MEM_INVALID_POOL 0xffffffff
 #define OS_MEM_PAGE_POOL_MAX_NUM 16
 
-typedef struct tagMEM_CFG_S
-{
-    void* pMemStartAddr;
-    u32 memLen;
-    u32 blkSize;
-}MEM_CFG_S;
-
 typedef struct tagMEM_BLK_HEAD_S
 {
     LIST_NODE_S blkNode;
@@ -39,12 +32,13 @@ typedef struct tagMEM_PAGE_POOL_S
 
 typedef struct tagMEM_MGT_S
 {
-	LIST_NODE_S freeBlkListHead;
-	MEM_PAGE_POOL_S poolCtrl[OS_MEM_PAGE_POOL_MAX_NUM];
-	void *pMemStartAddr;
-	u32 freeBlkCnt;
-	u32 memLen;
-	u32 blkSize;
+    LIST_NODE_S freeBlkListHead;
+    MEM_PAGE_POOL_S poolCtrl[OS_MEM_PAGE_POOL_MAX_NUM];
+    void *pMemStartAddr;
+    void *pMemAlignStartAddr;
+    u32 totalBlkCnt;
+    u32 memLen;
+    u32 blkSize;
 }MEM_MGT_S;
 
 #endif

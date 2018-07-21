@@ -6,6 +6,7 @@
 #define _LIST_API_H_
 
 #include <stdio.h>
+#include "config.h"
 
 #ifndef NULL 
 #define NULL 0
@@ -72,7 +73,6 @@ static inline void LIST_DEL_TAIL(LIST_NODE_S *head)
 
 #ifdef WIN32
 #define TEMP_ADDR 0x10000
-typedef unsigned int PTR;
 #define LIST_GET_ENTRY(curAddr, entryType, nodeLabel) \
     ((entryType*)(((PTR)(curAddr) + (PTR)TEMP_ADDR) - ((PTR)(&(entryType*)TEMP_ADDR->nodeLabel))))
 #endif

@@ -6,11 +6,33 @@
 #define _CONFIG_H_
 
 
+/* customized items*/
+#define MEM_LEN
+#define MEM_ADDR
+#define MEM_BLK_SZIE  (1 << 12)   //4KB
+
+
+
+
+
 typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned int u32;
 typedef unsigned long long u64;
 
+#ifdef STM32
+typedef unsigned int PTR;   //32bit addr
+#else
+typedef unsigned long long PTR;  //64bit addr
+#endif
+
 #define  TRUE 1
 #define  FALSE 0
+
+#define TEST_PASS 1
+#define TEST_FAIL 0
+
+
+
+
 #endif

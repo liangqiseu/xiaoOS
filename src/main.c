@@ -34,7 +34,7 @@ OS_MSG_RETRY_E test_list(void* v_pArgs)
     g_test++;
     if (g_test%1000!=0)
     {
-    	return OS_MSG_NEED_RETRY;
+        return OS_MSG_NEED_RETRY;
     }
 
     printf("LIST TEST OK!\r\n");
@@ -43,6 +43,9 @@ OS_MSG_RETRY_E test_list(void* v_pArgs)
 
 
 extern void LIST_Test(void);
+extern void Mem_Test(void);
+
+
 int main(void)
 {
     u32 taskAId = 0;
@@ -55,7 +58,8 @@ int main(void)
 
     //OS_MsgSend(test_list,NULL);
     LIST_Test();
-	printf("TEST OK!\r\n");
+    Mem_Test();
+    printf("TEST OK!\r\n");
     while(1){
     }
     //OS_Schedule();
