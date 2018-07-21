@@ -12,7 +12,11 @@
 #define MEM_BLK_SZIE  (1 << 12)   //4KB
 
 
-
+typedef enum tagMOUDLE_ID_E
+{
+    MID_OS = 0x0,
+    MID_TEST
+}MOUDLE_ID_E;
 
 
 typedef unsigned char u8;

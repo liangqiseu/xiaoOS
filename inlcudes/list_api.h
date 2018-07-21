@@ -9,7 +9,7 @@
 #include "config.h"
 
 #ifndef NULL 
-#define NULL 0
+#define NULL ((void*)0)
 #endif
 
 
@@ -70,6 +70,13 @@ static inline void LIST_DEL_TAIL(LIST_NODE_S *head)
     LIST_DEL(delNode,delNode->pre,head);
     return;
 }
+
+
+static inline int LIST_IS_EMPTY(LIST_NODE_S *head)
+{   
+    return (head == head->next);
+}
+
 
 #ifdef WIN32
 #define TEMP_ADDR 0x10000
