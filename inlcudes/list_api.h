@@ -77,11 +77,8 @@ static inline int LIST_IS_EMPTY(LIST_NODE_S *head)
     return (head == head->next);
 }
 
-
-#ifdef WIN32
 #define TEMP_ADDR 0x10000
 #define LIST_GET_ENTRY(curAddr, entryType, nodeLabel) \
-    ((entryType*)(((PTR)(curAddr) + (PTR)TEMP_ADDR) - ((PTR)(&(entryType*)TEMP_ADDR->nodeLabel))))
-#endif
+    ((entryType*)(((PTR)curAddr + (PTR)TEMP_ADDR) - ((PTR)&(((entryType*)TEMP_ADDR)->nodeLabel))))
 
 #endif  

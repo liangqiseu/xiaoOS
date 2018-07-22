@@ -3,7 +3,7 @@
 #include "../inlcudes/config.h"
 
 
-int TEST_ListInit(void)
+u32 TEST_ListInit(void)
 {
     LIST_NODE_S tmpHead = {(void*)0x1000,(void*)0x1000};
 
@@ -14,11 +14,13 @@ int TEST_ListInit(void)
         printf("%s(line:%d) FAIL! \r\n",__func__,__LINE__);
         return TEST_FAIL;
     }
+    
+    printf("%s(line:%d): PASS! \r\n",__func__,__LINE__);
     return TEST_PASS;
 }
 
 
-int TEST_ListAddHead(void)
+u32 TEST_ListAddHead(void)
 {
     LIST_NODE_S tmpHead = {0,0};
     LIST_NODE_S nodeOne = {0,0};
@@ -58,12 +60,12 @@ int TEST_ListAddHead(void)
         return TEST_FAIL;
     }
 
-    
+    printf("%s(line:%d): PASS! \r\n",__func__,__LINE__);
     return TEST_PASS;
 }
 
 
-int TEST_ListDel(void)
+u32 TEST_ListDel(void)
 {
     LIST_NODE_S tmpHead = {0,0};
     LIST_NODE_S nodeOne = {0,0};
@@ -105,8 +107,9 @@ int TEST_ListDel(void)
         return TEST_FAIL;
     }
 
-
     LIST_DEL_TAIL(&tmpHead);
+        
+    printf("%s(line:%d): PASS! \r\n",__func__,__LINE__);
     return TEST_PASS;
 }
 
@@ -117,23 +120,20 @@ typedef struct tagLIST_TMP_ENTRY
     void *data;
 }LIST_TMP_ENTRY_S;
 
-int TEST_ListGetEntry(void)
+u32 TEST_ListGetEntry(void)
 {
     LIST_TMP_ENTRY_S entry = {0};
     LIST_TMP_ENTRY_S *entryAddr = NULL;
-
-#ifdef WIN32
     unsigned int *valueAddr = &entry.value1;
-    /*
-	printf("%p \r\n", valueAddr);
+    
     entryAddr = (LIST_TMP_ENTRY_S*)LIST_GET_ENTRY(valueAddr, LIST_TMP_ENTRY_S, value1);
     if (!(entryAddr == &entry))
     {
         printf("%s(line:%d) FAIL! \r\n",__func__,__LINE__);
         return TEST_FAIL;
     }
-	*/
-#endif
+
+    printf("%s(line:%d): PASS! \r\n",__func__,__LINE__);
     return TEST_PASS;
 }
 

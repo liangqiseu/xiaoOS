@@ -4,8 +4,8 @@
 #include "list_api.h"
 #include "config.h"
 
-#define OS_MEM_INVALID_POOL 0xff
-#define OS_MEM_PAGE_POOL_MAX_NUM 16
+#define MEM_INVALID_POOL 0xff
+#define MEM_PAGE_POOL_MAX_NUM 16
 
 typedef struct tagMEM_BLK_HEAD_S
 {
@@ -24,9 +24,10 @@ typedef struct tagMEM_PAGE_HEAD_S
 }MEM_PAGE_HEAD_S;
 
 
-typedef struct tagMEM_PAGE_POOL_S
+typedef struct tagMEM_PAGE_POOL_MGT_S
 {
     LIST_NODE_S freePageListHead;
+    LIST_NODE_S usedBlkListHead;
     char *pPoolName;
     u16 defaultPageNum;
     u16 pageSize;
@@ -34,12 +35,12 @@ typedef struct tagMEM_PAGE_POOL_S
     u16 freePageCnt;
     u8 mid;
     u8 poolId;
-}MEM_PAGE_POOL_S;
+}MEM_PAGE_POOL_MGT_S;
 
 typedef struct tagMEM_MGT_S
 {
     LIST_NODE_S freeBlkListHead;
-    MEM_PAGE_POOL_S poolCtrl[OS_MEM_PAGE_POOL_MAX_NUM];
+    MEM_PAGE_POOL_MGT_S poolMgt[MEM_PAGE_POOL_MAX_NUM];
     void *pMemStartAddr;
     void *pMemAlignStartAddr;
     u32 memLen;
@@ -53,6 +54,20 @@ typedef enum tagOS_MEM_POOL_IDX_E
     OS_MEM_POOL_COMMON = 0x0,
     OS_MEM_POOL_SIZE_64B,
 }OS_MEM_POOL_IDX_E;
+
+typedef enum tagMEM_RTN_E
+{
+    MEM_OK = 0x0,
+    MEM_FAIL,
+}MEM_RTN_E;
+
+
+
+//
+void OS_MemInit(void);
+void OS_MemCfgInit(void *v_pMemAddr, u32 v_memLen, u32 v_blkSize);
+
+
 
 #endif
 
