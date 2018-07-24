@@ -88,7 +88,7 @@ u32 TEST_MemCalcBlkCnt(void)
 
 
 
-extern void OS_MemBlkListInit(void);
+extern void OS_MemBlkListHeadInit(void);
 extern void OS_MemSplitToBlk(void);
 extern u32 OS_MemIsAlignToX(void *v_addrOrLen, u32 v_alignSize);
 extern PTR OS_MemAlignToPtr(PTR v_len);
@@ -97,11 +97,12 @@ extern void OS_MemShowMgt(void);
 
 u32 TEST_MemSplitToblk(u32 v_memLen, u32 v_blkSize)
 {
-    u32 blkIdx = 0;
+    u32 blkHeadCnt = 0;
     u32 freeBlkCnt = 0;
     void *pMemStartAddr = NULL;
     PTR pTmpAddr = 0;
     LIST_NODE_S *pListHead = &g_memMgt.freeBlkListHead;
+    LIST_NODE_S *pTempHead = NULL;
     MEM_BLK_HEAD_S *pBlkHead = NULL;
 
     pMemStartAddr = malloc(v_memLen);
@@ -121,35 +122,47 @@ u32 TEST_MemSplitToblk(u32 v_memLen, u32 v_blkSize)
     freeBlkCnt = (v_memLen / g_memMgt.blkSize  >= 2) ? (v_memLen / g_memMgt.blkSize - 2 + freeBlkCnt) : 0;
 
     //Excute
-    OS_MemBlkListInit();
+	OS_MemBlkListHeadInit();
     OS_MemSplitToBlk();
 
     //Judgment result
     if (freeBlkCnt != g_memMgt.freeBlkCnt)
     {
-        printf("%s(line:%d): malloc FAIL! \r\n",__func__,__LINE__);
+        printf("%s(line:%d): FAIL! freeBlkCnt:0x%x 0x%x! \r\n",__func__,__LINE__,freeBlkCnt,g_memMgt.freeBlkCnt);
+        free(pMemStartAddr);
+        return TEST_FAIL;
+    }
+
+    pTempHead = pListHead->next;
+    //printf("idx=0x%x: self=0x%p next=0x%p pre=0x%p\r\n",
+    //    blkHeadCnt, pListHead, pListHead->next, pListHead->pre);
+
+    while(pTempHead != pListHead)
+    {
+
+        //printf("idx=0x%x: self=0x%p next=0x%p pre=0x%p\r\n",
+        //    blkHeadCnt, pTempHead, pTempHead->next, pTempHead->pre);
+
+        blkHeadCnt++;
+        pTempHead = pTempHead->next;
+    }
+
+    if (blkHeadCnt != g_memMgt.blkSize / sizeof(MEM_BLK_HEAD_S))
+    {
+        printf("%s(line:%d): FAIL! blkHeadCnt:0x%x 0x%x! \r\n",__func__,__LINE__,blkHeadCnt,(u32)(g_memMgt.blkSize / sizeof(MEM_BLK_HEAD_S)));
         free(pMemStartAddr);
         return TEST_FAIL;
     }
 
     pBlkHead = (MEM_BLK_HEAD_S *)(pListHead->next);
-    for (blkIdx = 0; blkIdx < freeBlkCnt; blkIdx++)
+    if ((pBlkHead->blkCnt != freeBlkCnt) || (pBlkHead->blkIdx != ((PTR)g_memMgt.pMemAlignStartAddr / g_memMgt.blkSize + 1)))
     {
-        /*
-        printf("idx=0x%x: self=0x%p next=0x%p pre=0x%p poolIdx=0x%x blkAddr=0x%p \r\n", 
-                blkIdx, pBlkHead,pBlkHead->blkNode.next, pBlkHead->blkNode.pre, pBlkHead->poolIdx, pBlkHead->pBlkAddr);
-        */        
-        pTmpAddr = (PTR)g_memMgt.pMemAlignStartAddr + (blkIdx + 1) * g_memMgt.blkSize;
-        if ((PTR)pTmpAddr != (PTR)pBlkHead->pBlkAddr)
-        {
-            printf("%s(line:%d): pTmpAddr=0x%p pBlkHead->pBlkAddr=0x%p !\r\n",__func__,__LINE__,(void*)pTmpAddr, pBlkHead->pBlkAddr);
-            return TEST_FAIL;
-        }
-        pBlkHead = (MEM_BLK_HEAD_S *)(pBlkHead->blkNode.next);
+        printf("%s(line:%d): FAIL!\r\n",__func__,__LINE__);
+        free(pMemStartAddr);
+        return TEST_FAIL;
     }
-
     free(pMemStartAddr);
-    
+
     return TEST_PASS;
 }
 
@@ -181,6 +194,7 @@ u32 TEST_MemSplitBlkToPagePool(u16 v_pageSize, u16 v_defaultPageNum)
     void *pMemStartAddr = NULL;
     PTR pPageAddr = 0;
     PTR pPageHeadAddr = 0;
+	PTR blkAddr = 0;
     MEM_BLK_HEAD_S *pUsedFirstBlk = NULL;
     MEM_PAGE_HEAD_S *pPageHead =NULL;
     MEM_PAGE_POOL_MGT_S tempPool = { 0 };
@@ -201,7 +215,7 @@ u32 TEST_MemSplitBlkToPagePool(u16 v_pageSize, u16 v_defaultPageNum)
     OS_MemCfgInit(pMemStartAddr, memLen, blkSize);
 
     //Excute
-    OS_MemBlkListInit();
+    OS_MemBlkListHeadInit();
     OS_MemSplitToBlk();
     OS_MemSplitBlkToPagePool(&tempPool);
 
@@ -216,10 +230,11 @@ u32 TEST_MemSplitBlkToPagePool(u16 v_pageSize, u16 v_defaultPageNum)
 
     pUsedFirstBlk = (MEM_BLK_HEAD_S*)((&tempPool.usedBlkListHead)->next);
     pPageHead = (MEM_PAGE_HEAD_S*)((&tempPool.freePageListHead)->next);
+	blkAddr = (PTR)(pUsedFirstBlk->blkIdx * g_memMgt.blkSize);
 
     for (pageIdx = 0; pageIdx < freePageCnt; pageIdx++)
     {          
-        pPageHeadAddr = (tempPool.pageSize + (u16)OS_MemAlignToPtr(sizeof(MEM_PAGE_HEAD_S))) *pageIdx + (PTR)pUsedFirstBlk->pBlkAddr;
+        pPageHeadAddr = (tempPool.pageSize + (u16)OS_MemAlignToPtr(sizeof(MEM_PAGE_HEAD_S))) *pageIdx + blkAddr;
         pPageAddr = pPageHeadAddr + (u16)OS_MemAlignToPtr(sizeof(MEM_PAGE_HEAD_S));
         //printf("idx=0x%x: pPageHead=0x%p pPageHeadAddr=0x%p pPageAddr=0x%p pPageHead->pPageAddr=0x%p\r\n",
         //    pageIdx, (void*)pPageHead, (void*)pPageHeadAddr, (void*)pPageAddr, pPageHead->pPageAddr);

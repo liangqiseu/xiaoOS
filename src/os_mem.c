@@ -44,6 +44,7 @@ void OS_MemIncFreeBlkCnt()
 void OS_MemSetTotalFreeBlkCnt(u32 v_cnt)
 {
     g_memMgt.totalBlkCnt = v_cnt;
+    g_memMgt.freeBlkCnt = v_cnt;
     return;
 }
 
@@ -61,11 +62,24 @@ u32 OS_MemCalcBlkCnt(void)
     return blkCnt;
 }
 
-void OS_MemBlkHeadInit(MEM_BLK_HEAD_S *v_pBlkHeadInfo, u32 v_poolIdx, void *v_pBlkAdr)
+void OS_MemAddAllBlkHeadToList(PTR v_headAddr)
 {
-    LIST_HEAD_INIT(&v_pBlkHeadInfo->blkNode);
-    v_pBlkHeadInfo->poolIdx = v_poolIdx;
-    v_pBlkHeadInfo->pBlkAddr = v_pBlkAdr;
+    u32 blkHeadIdx = 0;
+    u32 blkSize = g_memMgt.blkSize;
+    LIST_NODE_S *pFreeBlkListHead = &g_memMgt.freeBlkListHead;
+    MEM_BLK_HEAD_S *pBlkHead = NULL;
+
+    for (blkHeadIdx = 0; blkHeadIdx < (blkSize / sizeof(MEM_BLK_HEAD_S)); blkHeadIdx ++)
+    {
+
+        pBlkHead = (MEM_BLK_HEAD_S*)(v_headAddr + blkHeadIdx * sizeof(MEM_BLK_HEAD_S));
+        LIST_ADD_TAIL(&pBlkHead->blkNode, pFreeBlkListHead);
+        //printf("idx=0x%x: self=0x%p next=0x%p pre=0x%p\r\n",
+        //    blkHeadIdx, pBlkHead, pBlkHead->blkNode.next, pBlkHead->blkNode.pre);
+
+        pBlkHead->blkIdx = 0;
+        pBlkHead->blkCnt = 0;
+    }
     
     return;
 }
@@ -73,11 +87,11 @@ void OS_MemBlkHeadInit(MEM_BLK_HEAD_S *v_pBlkHeadInfo, u32 v_poolIdx, void *v_pB
 
 void OS_MemSplitToBlk(void)
 {
-    u32 blkIdx = 0;
-    u32 blkSize = g_memMgt.blkSize;
     u32 totalBlkCnt = 0;
-    MEM_BLK_HEAD_S *pBlkHeadAddr = NULL;
-    void *pBlkAddr = NULL;
+    u32 blkSize = g_memMgt.blkSize;
+    PTR pBlkHeadStartAddr = 0;
+    MEM_BLK_HEAD_S *pFirstBlkHead = NULL;
+    LIST_NODE_S *freeBlkListHead = &g_memMgt.freeBlkListHead;
 
     totalBlkCnt = OS_MemCalcBlkCnt();
     OS_MemSetTotalFreeBlkCnt(totalBlkCnt);
@@ -87,19 +101,25 @@ void OS_MemSplitToBlk(void)
         return;
     }
 
-    pBlkHeadAddr = (MEM_BLK_HEAD_S*)g_memMgt.pMemAlignStartAddr;
-    pBlkAddr = g_memMgt.pMemAlignStartAddr;
-
     /*
         first block uesd to provide memory of other block heads 
         note: first block has no block head info
     */
-    if (totalBlkCnt > (blkSize / sizeof(MEM_BLK_HEAD_S)))
+    pBlkHeadStartAddr = (PTR)g_memMgt.pMemAlignStartAddr;
+    OS_MemAddAllBlkHeadToList(pBlkHeadStartAddr);
+    if (TRUE == LIST_IS_EMPTY(freeBlkListHead))
     {
-        printf("%s(line:%d): unreasonable blkSize! totalBlkCnt=0x%x \r\n",__func__, __LINE__, totalBlkCnt);
+        printf("%s(line:%d): unreasonalbe blkSize! blkSize=0x%x! \r\n", __func__, __LINE__,blkSize);
         return;
     }
+    OS_MemDecFreeBlkCnt();
 
+    /* add all free blk to first blkNode */
+    pFirstBlkHead = (MEM_BLK_HEAD_S*)(freeBlkListHead->next);
+    pFirstBlkHead->blkIdx = ((PTR)g_memMgt.pMemAlignStartAddr / blkSize) + 1;
+    pFirstBlkHead->blkCnt = totalBlkCnt - 1;
+
+/*
     pBlkAddr = (void*)((PTR)pBlkAddr + blkSize);
     for (blkIdx = 0; blkIdx < (totalBlkCnt - 1); blkIdx++)
     {
@@ -108,7 +128,7 @@ void OS_MemSplitToBlk(void)
         pBlkAddr = (void*)((PTR)pBlkAddr + blkSize);
         OS_MemIncFreeBlkCnt();
     }
-    
+*/
     return;
 }
 
@@ -125,8 +145,8 @@ void OS_MemShowBlkList(void)
     for (blkIdx = 0; blkIdx < (totalBlkCnt - 1); blkIdx++)
     {
         
-        printf("  idx=0x%x: self=0x%p next=0x%p pre=0x%p poolIdx=0x%x blkAddr=0x%p \r\n", 
-                blkIdx, pBlkHead,pBlkHead->blkNode.next, pBlkHead->blkNode.pre, pBlkHead->poolIdx, pBlkHead->pBlkAddr);
+        printf("  idx=0x%x: self=0x%p next=0x%p pre=0x%p blkCnt=0x%x blkIdx=0x%x \r\n", 
+                blkIdx, pBlkHead, pBlkHead->blkNode.next, pBlkHead->blkNode.pre, pBlkHead->blkCnt, pBlkHead->blkIdx);
         pBlkHead = (MEM_BLK_HEAD_S *)(pBlkHead->blkNode.next);
     }
     return;
@@ -144,7 +164,7 @@ void OS_MemShowMgt(void)
 void OS_MemShowPool(u8 v_poolId)
 {
     u8 poolIdx = 0;
-    u8 poolIdxMax = MEM_PAGE_POOL_MAX_NUM;
+    u8 poolIdxMax = MEM_PAGE_POOL_MAX_NUM - 1;
     MEM_PAGE_POOL_MGT_S *poolMgt = NULL;
 
     if (MEM_PAGE_POOL_MAX_NUM >= v_poolId)
@@ -153,8 +173,8 @@ void OS_MemShowPool(u8 v_poolId)
         poolIdxMax = v_poolId;
     }
 
-	printf("Pool:\r\n");
-    for (poolIdx = 0; poolIdx < poolIdxMax; poolIdx++)
+    printf("Pool:\r\n");
+    for (poolIdx = poolIdx; poolIdx <= poolIdxMax; poolIdx++)
     {
         poolMgt = &g_memMgt.poolMgt[poolIdx];
         printf("  idx:0x%x poolName=%s defaultPageNum=0x%x pageSize=0x%x totalPageCnt=0x%x freePageCnt=0x%x mid=0x%x \r\n", 
@@ -179,6 +199,7 @@ u32 OS_MemSplitBlkToPagePool(MEM_PAGE_POOL_MGT_S *v_pPagePoolMgt)
     u16 pageActualSize = 0;
     u16 pageHeadAlignSize = 0;
     void *pPageAddr = NULL;
+	PTR blkAddr = 0;
     MEM_BLK_HEAD_S *pBlkHead = NULL;
     MEM_PAGE_HEAD_S *pPageHead = NULL;
     LIST_NODE_S *pBlkListHead = &g_memMgt.freeBlkListHead;
@@ -188,7 +209,7 @@ u32 OS_MemSplitBlkToPagePool(MEM_PAGE_POOL_MGT_S *v_pPagePoolMgt)
         return MEM_FAIL;
     }
 
-    pBlkHead = (MEM_BLK_HEAD_S*)pBlkListHead->next;
+    pBlkHead = (MEM_BLK_HEAD_S*)(pBlkListHead->next);
     LIST_DEL_HEAD(pBlkListHead);
     OS_MemDecFreeBlkCnt();
     LIST_ADD_TAIL(&pBlkHead->blkNode, &v_pPagePoolMgt->usedBlkListHead);
@@ -201,9 +222,10 @@ u32 OS_MemSplitBlkToPagePool(MEM_PAGE_POOL_MGT_S *v_pPagePoolMgt)
         Only custom one freeBlk when pool created. 
         If page number is smaller than defaultNum set by user, more pages will add to pool in runtime.
     */
+	blkAddr = (PTR)(pBlkHead->blkIdx * g_memMgt.blkSize);
     for (pageIdx = 0; pageIdx < (g_memMgt.blkSize / pageActualSize); pageIdx++)
     {
-        pPageHead = (MEM_PAGE_HEAD_S*)((PTR)pBlkHead->pBlkAddr + (pageActualSize * pageIdx));
+        pPageHead = (MEM_PAGE_HEAD_S*)(blkAddr + (pageActualSize * pageIdx));
         pPageAddr = (void*)((PTR)pPageHead+pageHeadAlignSize);
         OS_MemPageHeadInit(pPageHead,pPageAddr,pBlkHead->blkIdx);
         LIST_ADD_TAIL(&pPageHead->pageNode, &v_pPagePoolMgt->freePageListHead);
@@ -256,14 +278,14 @@ void OS_MemBuiltinPoolInit(void)
     
     if(MEM_INVALID_POOL == g_memOsPool1KB || MEM_INVALID_POOL == g_memOsPool256B || MEM_INVALID_POOL == g_memOsPool64B)
     {
-        printf("%s(line:%d) FAIL! %d %d %d \r\n",__func__, __LINE__, g_memOsPool1KB, g_memOsPool256B, g_memOsPool64B);
+        //printf("%s(line:%d) FAIL! %d %d %d \r\n",__func__, __LINE__, g_memOsPool1KB, g_memOsPool256B, g_memOsPool64B);
     }
     
     return;
 }
 
 
-void OS_MemBlkListInit(void)
+void OS_MemBlkListHeadInit(void)
 {
     LIST_NODE_S *pBlkListHead = &g_memMgt.freeBlkListHead;
     LIST_HEAD_INIT(pBlkListHead);
@@ -286,12 +308,12 @@ void OS_MemCfgInit(void *v_pMemAddr, u32 v_memLen, u32 v_blkSize)
 
 void OS_MemInit(void)
 {
-    OS_MemBlkListInit();
+    OS_MemBlkListHeadInit();
     OS_MemSplitToBlk();
     OS_MemShowMgt();
     OS_MemShowBlkList();
     OS_MemBuiltinPoolInit();
-    OS_MemShowPool(45);
+    OS_MemShowPool(1);
 
     return;
 }

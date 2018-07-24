@@ -10,9 +10,8 @@
 typedef struct tagMEM_BLK_HEAD_S
 {
     LIST_NODE_S blkNode;
-    void *pBlkAddr;
-    u16 blkIdx;
-    u8 poolIdx;
+    u32 blkIdx;
+    u32 blkCnt;
 }MEM_BLK_HEAD_S;
 
 typedef struct tagMEM_PAGE_HEAD_S
