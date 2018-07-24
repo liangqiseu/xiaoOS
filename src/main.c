@@ -20,18 +20,11 @@ int main(void)
     u32 taskAId = 0;
     u32 taskBId = 0;
 
-    void *pMemAddr = NULL;
-    u32 memLen = 0x7000;
-
+    /** all testcase **/
     LIST_Test();
     Mem_Test();
 
-    pMemAddr = malloc(memLen);
-    if (NULL == pMemAddr)
-    {
-        return OS_ERR;
-    }
-    OS_MemCfgInit(pMemAddr, memLen, 0x1000);
+
     OS_MemInit();
     
     printf("TEST OK!\r\n");

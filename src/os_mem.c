@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "../inlcudes/config.h"
 #include "../inlcudes/os_mem_api.h"
@@ -308,12 +309,22 @@ void OS_MemCfgInit(void *v_pMemAddr, u32 v_memLen, u32 v_blkSize)
 
 void OS_MemInit(void)
 {
+    u32 memLen = 0x7000;
+    void *pMemAddr = NULL;
+
+    pMemAddr = malloc(memLen);
+    if (NULL == pMemAddr)
+    {
+        return;
+    }
+    OS_MemCfgInit(pMemAddr, memLen, 0x1000);
     OS_MemBlkListHeadInit();
     OS_MemSplitToBlk();
     OS_MemShowMgt();
     OS_MemShowBlkList();
     OS_MemBuiltinPoolInit();
     OS_MemShowPool(1);
+    free(pMemAddr);
 
     return;
 }
