@@ -122,7 +122,7 @@ u32 TEST_MemSplitToblk(u32 v_memLen, u32 v_blkSize)
     freeBlkCnt = (v_memLen / g_memMgt.blkSize  >= 2) ? (v_memLen / g_memMgt.blkSize - 2 + freeBlkCnt) : 0;
 
     //Excute
-	OS_MemBlkListHeadInit();
+    OS_MemBlkListHeadInit();
     OS_MemSplitToBlk();
 
     //Judgment result
@@ -163,6 +163,55 @@ u32 TEST_MemSplitToblk(u32 v_memLen, u32 v_blkSize)
     }
     free(pMemStartAddr);
 
+    return TEST_PASS;
+}
+
+void* OS_MemGetBlkHeadByCnt(u32 v_blkCnt);
+u32 TEST_MemGetBlkNodeByCnt(void)
+{
+    MEM_BLK_HEAD_S blkNodeOne = {{0,0},0,0};
+    MEM_BLK_HEAD_S blkNodeTwo = {{0,0},0,0};
+    MEM_BLK_HEAD_S blkNodeThree = {{0,0},0,0};
+    MEM_BLK_HEAD_S blkNodeFour = {{0,0},0,0};
+
+    MEM_BLK_HEAD_S *testRes1 = NULL;
+    MEM_BLK_HEAD_S *testRes3 = NULL;
+    MEM_BLK_HEAD_S *testRes4 = NULL;
+    MEM_BLK_HEAD_S *testRes6 = NULL;
+    MEM_BLK_HEAD_S *testRes0 = NULL;
+
+    //Pre-condition
+    LIST_HEAD_INIT(&g_memMgt.freeBlkListHead);
+    blkNodeOne.blkCnt = 1;
+    blkNodeTwo.blkCnt = 3;
+    blkNodeThree.blkCnt = 4;
+    blkNodeFour.blkCnt = 0;
+
+    LIST_ADD_TAIL(&(blkNodeOne.blkNode),&g_memMgt.freeBlkListHead);
+    LIST_ADD_TAIL(&(blkNodeTwo.blkNode),&g_memMgt.freeBlkListHead);
+    LIST_ADD_TAIL(&(blkNodeThree.blkNode),&g_memMgt.freeBlkListHead);
+    LIST_ADD_TAIL(&(blkNodeFour.blkNode),&g_memMgt.freeBlkListHead);
+
+    //Excute
+    testRes1 = OS_MemGetBlkHeadByCnt(1);
+    testRes3 = OS_MemGetBlkHeadByCnt(3);
+    testRes4 = OS_MemGetBlkHeadByCnt(4);
+    testRes6 = OS_MemGetBlkHeadByCnt(6);
+    testRes0 = OS_MemGetBlkHeadByCnt(0);
+
+    if (!((testRes1 == &blkNodeOne) \
+        && (testRes3 == &blkNodeTwo) \
+        && (testRes4 == &blkNodeThree) \
+        && (testRes6 == NULL) \
+        && (testRes0 == NULL)))
+    {
+        //printf("%s(%d):%p %p %p %p %p    %p %p %p %p!\r\n",__func__,__LINE__,
+        //    testRes1,testRes3,testRes4,testRes6,testRes0,  &blkNodeOne.blkNode,&blkNodeTwo.blkNode,&blkNodeThree.blkNode,&blkNodeFour.blkNode);
+        printf("%s(line:%d): FAIL! \r\n",__func__,__LINE__);
+        return TEST_FAIL;
+    }
+        
+    printf("%s(line:%d): PASS! \r\n",__func__,__LINE__);
     return TEST_PASS;
 }
 
@@ -285,6 +334,7 @@ void Mem_Test(void)
     (void)TEST_MemCalcBlkCnt();
     (void)TEST_MemSplitToblkCaseSet();
     (void)TEST_MemSplitBlkToPagePoolCaseSet();
+    (void)TEST_MemGetBlkNodeByCnt();
     return;
 }
 

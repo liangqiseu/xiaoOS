@@ -30,15 +30,15 @@ u32 OS_MemIsAlignToX(void *v_addrOrLen, u32 v_alignSize)
 }
 
 
-void OS_MemDecFreeBlkCnt()
+void OS_MemDecFreeBlkCnt(u32 v_blkCnt)
 {
-    g_memMgt.freeBlkCnt--;
+    g_memMgt.freeBlkCnt -= v_blkCnt;
     return;
 }
 
-void OS_MemIncFreeBlkCnt()
+void OS_MemIncFreeBlkCnt(u32 v_blkCnt)
 {
-    g_memMgt.freeBlkCnt++;
+    g_memMgt.freeBlkCnt += v_blkCnt;
     return;
 }
 
@@ -63,17 +63,31 @@ u32 OS_MemCalcBlkCnt(void)
     return blkCnt;
 }
 
-void OS_MemAddAllBlkHeadToList(PTR v_headAddr)
+void OS_MemBlkListHeadInit(void)
 {
+    LIST_NODE_S *pBlkListHead = &g_memMgt.freeBlkListHead;
+    LIST_HEAD_INIT(pBlkListHead);
+    
+    return;
+}
+
+void OS_MemSplitOneBlkToBlkHeads(PTR v_pBlkAddr)
+{
+    u32 headCnt = 0;
     u32 blkHeadIdx = 0;
     u32 blkSize = g_memMgt.blkSize;
     LIST_NODE_S *pFreeBlkListHead = &g_memMgt.freeBlkListHead;
     MEM_BLK_HEAD_S *pBlkHead = NULL;
 
+    headCnt = (blkSize / sizeof(MEM_BLK_HEAD_S));
+    if (0 == headCnt)
+    {
+        return;
+    }
+
     for (blkHeadIdx = 0; blkHeadIdx < (blkSize / sizeof(MEM_BLK_HEAD_S)); blkHeadIdx ++)
     {
-
-        pBlkHead = (MEM_BLK_HEAD_S*)(v_headAddr + blkHeadIdx * sizeof(MEM_BLK_HEAD_S));
+        pBlkHead = (MEM_BLK_HEAD_S*)(v_pBlkAddr + blkHeadIdx * sizeof(MEM_BLK_HEAD_S));
         LIST_ADD_TAIL(&pBlkHead->blkNode, pFreeBlkListHead);
         //printf("idx=0x%x: self=0x%p next=0x%p pre=0x%p\r\n",
         //    blkHeadIdx, pBlkHead, pBlkHead->blkNode.next, pBlkHead->blkNode.pre);
@@ -84,6 +98,8 @@ void OS_MemAddAllBlkHeadToList(PTR v_headAddr)
     
     return;
 }
+
+
 
 
 void OS_MemSplitToBlk(void)
@@ -107,31 +123,119 @@ void OS_MemSplitToBlk(void)
         note: first block has no block head info
     */
     pBlkHeadStartAddr = (PTR)g_memMgt.pMemAlignStartAddr;
-    OS_MemAddAllBlkHeadToList(pBlkHeadStartAddr);
+    OS_MemBlkListHeadInit();
+    OS_MemSplitOneBlkToBlkHeads(pBlkHeadStartAddr);
     if (TRUE == LIST_IS_EMPTY(freeBlkListHead))
     {
         printf("%s(line:%d): unreasonalbe blkSize! blkSize=0x%x! \r\n", __func__, __LINE__,blkSize);
         return;
     }
-    OS_MemDecFreeBlkCnt();
+    OS_MemDecFreeBlkCnt(1);
 
     /* add all free blk to first blkNode */
     pFirstBlkHead = (MEM_BLK_HEAD_S*)(freeBlkListHead->next);
     pFirstBlkHead->blkIdx = ((PTR)g_memMgt.pMemAlignStartAddr / blkSize) + 1;
     pFirstBlkHead->blkCnt = totalBlkCnt - 1;
 
-/*
-    pBlkAddr = (void*)((PTR)pBlkAddr + blkSize);
-    for (blkIdx = 0; blkIdx < (totalBlkCnt - 1); blkIdx++)
-    {
-        OS_MemBlkHeadInit(&pBlkHeadAddr[blkIdx],OS_MEM_POOL_COMMON,pBlkAddr);
-        LIST_ADD_TAIL(&pBlkHeadAddr[blkIdx].blkNode, &g_memMgt.freeBlkListHead);
-        pBlkAddr = (void*)((PTR)pBlkAddr + blkSize);
-        OS_MemIncFreeBlkCnt();
-    }
-*/
     return;
 }
+
+
+void* OS_MemGetBlkHeadByCnt(u32 v_blkCnt)
+{
+    MEM_BLK_HEAD_S *pBlkHeadNode = NULL;
+    LIST_NODE_S *pFreeBlkListHead = &g_memMgt.freeBlkListHead;
+
+    if (0 == v_blkCnt)
+    {
+        return NULL;
+    }
+
+    pBlkHeadNode = (MEM_BLK_HEAD_S*)(pFreeBlkListHead->next);
+    
+    while(pBlkHeadNode != (MEM_BLK_HEAD_S*)pFreeBlkListHead)
+    {
+        if(v_blkCnt <= pBlkHeadNode->blkCnt)
+        {
+            return (void*)pBlkHeadNode;
+        }
+        pBlkHeadNode = (MEM_BLK_HEAD_S*)((&(pBlkHeadNode->blkNode))->next);
+    }
+    return NULL;
+}
+
+
+
+void OS_MemBlkNodeInsertToFreeList(MEM_BLK_HEAD_S *v_pBlkHead)
+{
+    MEM_BLK_HEAD_S *pBlkHeadNode = NULL;
+    LIST_NODE_S *pFreeBlkListHead = &g_memMgt.freeBlkListHead;
+    
+
+    if (0 == v_pBlkHead->blkCnt)
+    {
+        LIST_ADD_TAIL(&v_pBlkHead->blkNode,pFreeBlkListHead);
+        return;
+    }
+
+    pBlkHeadNode = (MEM_BLK_HEAD_S*)pFreeBlkListHead->next;
+
+    while(v_pBlkHead->blkCnt > pBlkHeadNode->blkCnt)
+    {
+        pBlkHeadNode = (MEM_BLK_HEAD_S*)(&pBlkHeadNode->blkNode)->next;
+    }
+    LIST_ADD(&v_pBlkHead->blkNode, pBlkHeadNode->blkNode.pre, pBlkHeadNode->blkNode.next);
+
+    return;
+    
+}
+
+void* OS_MemBlkAlloc(u32 v_blkCnt)
+{
+    void* pBlkAddr = 0;
+    MEM_BLK_HEAD_S *pBlkHead = NULL;
+    
+
+	pBlkHead = OS_MemGetBlkHeadByCnt(v_blkCnt);
+    if (NULL == pBlkHead)
+    {
+        return NULL;
+    }
+
+    pBlkAddr = (void*)(PTR)(pBlkHead->blkIdx * g_memMgt.blkSize);
+
+    LIST_NODE_DEL(&pBlkHead->blkNode);
+    pBlkHead->blkCnt -= v_blkCnt;
+    pBlkHead->blkIdx += v_blkCnt;
+    OS_MemDecFreeBlkCnt(v_blkCnt);
+    OS_MemBlkNodeInsertToFreeList(pBlkHead);
+
+    return pBlkAddr;
+}
+
+
+void* OS_MemGetUnusedBlkHead(void)
+{
+    MEM_BLK_HEAD_S *pTailNode = NULL;
+    LIST_NODE_S *pFreeBlkListHead = &g_memMgt.freeBlkListHead;
+
+    pTailNode = (MEM_BLK_HEAD_S*)(pFreeBlkListHead->pre);
+    if (0 == pTailNode->blkCnt)
+    {
+        return (void*)pTailNode;
+    }
+
+    OS_MemSplitOneBlkToBlkHeads((PTR)OS_MemBlkAlloc(1));
+
+    pTailNode = (MEM_BLK_HEAD_S*)(pFreeBlkListHead->pre);
+    if (0 == pTailNode->blkCnt)
+    {
+        return (void*)pTailNode;
+    }
+
+    return NULL;
+}
+
 
 
 void OS_MemShowBlkList(void)
@@ -212,7 +316,7 @@ u32 OS_MemSplitBlkToPagePool(MEM_PAGE_POOL_MGT_S *v_pPagePoolMgt)
 
     pBlkHead = (MEM_BLK_HEAD_S*)(pBlkListHead->next);
     LIST_DEL_HEAD(pBlkListHead);
-    OS_MemDecFreeBlkCnt();
+    OS_MemDecFreeBlkCnt(1);
     LIST_ADD_TAIL(&pBlkHead->blkNode, &v_pPagePoolMgt->usedBlkListHead);
     
     pageHeadAlignSize = (u16)OS_MemAlignToPtr(sizeof(MEM_PAGE_HEAD_S));
@@ -223,7 +327,7 @@ u32 OS_MemSplitBlkToPagePool(MEM_PAGE_POOL_MGT_S *v_pPagePoolMgt)
         Only custom one freeBlk when pool created. 
         If page number is smaller than defaultNum set by user, more pages will add to pool in runtime.
     */
-	blkAddr = (PTR)(pBlkHead->blkIdx * g_memMgt.blkSize);
+    blkAddr = (PTR)(pBlkHead->blkIdx * g_memMgt.blkSize);
     for (pageIdx = 0; pageIdx < (g_memMgt.blkSize / pageActualSize); pageIdx++)
     {
         pPageHead = (MEM_PAGE_HEAD_S*)(blkAddr + (pageActualSize * pageIdx));
@@ -285,15 +389,6 @@ void OS_MemBuiltinPoolInit(void)
     return;
 }
 
-
-void OS_MemBlkListHeadInit(void)
-{
-    LIST_NODE_S *pBlkListHead = &g_memMgt.freeBlkListHead;
-    LIST_HEAD_INIT(pBlkListHead);
-    
-    return;
-}
-
 void OS_MemCfgInit(void *v_pMemAddr, u32 v_memLen, u32 v_blkSize)
 {
     g_memMgt.pMemStartAddr = v_pMemAddr;
@@ -318,7 +413,6 @@ void OS_MemInit(void)
         return;
     }
     OS_MemCfgInit(pMemAddr, memLen, 0x1000);
-    OS_MemBlkListHeadInit();
     OS_MemSplitToBlk();
     OS_MemShowMgt();
     OS_MemShowBlkList();

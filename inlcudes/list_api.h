@@ -57,6 +57,12 @@ static inline void LIST_DEL(LIST_NODE_S *delNode, LIST_NODE_S *pre, LIST_NODE_S 
     return;
 }
 
+static inline void LIST_NODE_DEL(LIST_NODE_S *delNode)
+{
+    LIST_DEL(delNode,delNode->pre,delNode->next);
+    return;
+}
+
 static inline void LIST_DEL_HEAD(LIST_NODE_S *head)
 {
     LIST_NODE_S *delNode = head->next;
