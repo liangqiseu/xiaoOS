@@ -3,6 +3,7 @@
 
 #include "../inlcudes/os_mem_api.h"
 #include "../inlcudes/config.h"
+#include "../src/os_mem.h"
 
 extern PTR OS_MemAlignToX(PTR v_addr, u32 v_alignSize);
 u32 TEST_MemAlignToX(void)
@@ -215,6 +216,59 @@ u32 TEST_MemGetBlkNodeByCnt(void)
     return TEST_PASS;
 }
 
+extern void OS_MemBlkNodeInsertToFreeList(MEM_BLK_HEAD_S *v_pBlkHead);
+u32 TEST_MemBlkNodeInsertToFreeList(void)
+{
+    MEM_BLK_HEAD_S blkNodeOne = {{0,0},0,0};
+    MEM_BLK_HEAD_S blkNodeTwo = {{0,0},0,0};
+    MEM_BLK_HEAD_S blkNodeThree = {{0,0},0,0};
+    MEM_BLK_HEAD_S blkNodeFour = {{0,0},0,0};
+    MEM_BLK_HEAD_S insertNodeOne = {{0,0},0,0};
+    MEM_BLK_HEAD_S insertNodeTwo = {{0,0},0,0};
+    MEM_BLK_HEAD_S insertNodeThree = {{0,0},0,0 };
+
+    //Pre-condition
+    LIST_HEAD_INIT(&g_memMgt.freeBlkListHead);
+    blkNodeOne.blkCnt = 1;
+    blkNodeTwo.blkCnt = 3;
+    blkNodeThree.blkCnt = 4;
+    blkNodeFour.blkCnt = 6;
+
+    LIST_ADD_TAIL(&(blkNodeOne.blkNode),&g_memMgt.freeBlkListHead);
+    LIST_ADD_TAIL(&(blkNodeTwo.blkNode),&g_memMgt.freeBlkListHead);
+    LIST_ADD_TAIL(&(blkNodeThree.blkNode),&g_memMgt.freeBlkListHead);
+    LIST_ADD_TAIL(&(blkNodeFour.blkNode),&g_memMgt.freeBlkListHead);
+
+    //printf("%s(%d):%p %p %p %p!\r\n",__func__,__LINE__,
+    //    &blkNodeOne.blkNode,&blkNodeTwo.blkNode,&blkNodeThree.blkNode,&blkNodeFour.blkNode);
+
+    //Excute
+    insertNodeOne.blkCnt = 1;
+    OS_MemBlkNodeInsertToFreeList(&insertNodeOne);
+    insertNodeTwo.blkCnt = 3;
+    OS_MemBlkNodeInsertToFreeList(&insertNodeTwo);
+    insertNodeThree.blkCnt = 8;
+    OS_MemBlkNodeInsertToFreeList(&insertNodeThree);
+
+    //printf("%s(%d):%p %p %p %p!\r\n", __func__, __LINE__,
+    //	(&blkNodeOne.blkNode)->pre, (&blkNodeTwo.blkNode)->pre, (&blkNodeThree.blkNode)->pre, (&blkNodeFour.blkNode)->pre);
+
+    if (((&blkNodeOne.blkNode)->pre != (LIST_NODE_S*)&insertNodeOne) \
+        || ((&blkNodeTwo.blkNode)->pre != (LIST_NODE_S*)&insertNodeTwo) \
+        || (&blkNodeFour.blkNode)->next != (LIST_NODE_S*)&insertNodeThree)
+    {
+        //printf("%s(%d):%p %p \r\n",__func__,__LINE__,
+        //    &insertNodeOne, &insertNodeTwo);
+        printf("%s(line:%d): FAIL! \r\n",__func__,__LINE__);
+        return TEST_FAIL;
+    }
+
+    printf("%s(line:%d): PASS! \r\n",__func__,__LINE__);
+    return TEST_PASS;
+}
+
+
+
 
 u32 TEST_MemSplitToblkCaseSet(void)
 {
@@ -233,7 +287,7 @@ u32 TEST_MemSplitToblkCaseSet(void)
 
 extern void OS_MemSplitBlkToPagePool(MEM_PAGE_POOL_MGT_S *v_pPagePoolMgt);
 
-u32 TEST_MemSplitBlkToPagePool(u16 v_pageSize, u16 v_defaultPageNum)
+u32 TEST_MemSplitBlkToPagePool(u16 v_pageSize, u16 v_refPageNum)
 {
     u32 memLen = 0x3000;
     u32 blkSize = 0x1000;
@@ -243,12 +297,12 @@ u32 TEST_MemSplitBlkToPagePool(u16 v_pageSize, u16 v_defaultPageNum)
     void *pMemStartAddr = NULL;
     PTR pPageAddr = 0;
     PTR pPageHeadAddr = 0;
-	PTR blkAddr = 0;
+    PTR blkAddr = 0;
     MEM_BLK_HEAD_S *pUsedFirstBlk = NULL;
     MEM_PAGE_HEAD_S *pPageHead =NULL;
     MEM_PAGE_POOL_MGT_S tempPool = { 0 };
 
-    tempPool.defaultPageNum = v_defaultPageNum;
+    tempPool.refPageNum = v_refPageNum;
     tempPool.pageSize = v_pageSize;
 
     LIST_HEAD_INIT(&tempPool.freePageListHead);
@@ -279,7 +333,7 @@ u32 TEST_MemSplitBlkToPagePool(u16 v_pageSize, u16 v_defaultPageNum)
 
     pUsedFirstBlk = (MEM_BLK_HEAD_S*)((&tempPool.usedBlkListHead)->next);
     pPageHead = (MEM_PAGE_HEAD_S*)((&tempPool.freePageListHead)->next);
-	blkAddr = (PTR)(pUsedFirstBlk->blkIdx * g_memMgt.blkSize);
+    blkAddr = (PTR)(pUsedFirstBlk->blkIdx * g_memMgt.blkSize);
 
     for (pageIdx = 0; pageIdx < freePageCnt; pageIdx++)
     {          
@@ -335,6 +389,7 @@ void Mem_Test(void)
     (void)TEST_MemSplitToblkCaseSet();
     (void)TEST_MemSplitBlkToPagePoolCaseSet();
     (void)TEST_MemGetBlkNodeByCnt();
+    (void)TEST_MemBlkNodeInsertToFreeList();
     return;
 }
 
