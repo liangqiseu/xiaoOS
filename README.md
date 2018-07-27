@@ -2,10 +2,7 @@
 # xiaoOS
 customized OS
 
-#USAGE:
-
-cd ./build
-
-make
-
-./xx.out
+# USAGE:
+cd ./build</br>
+make</br>
+./xx.out</br>
