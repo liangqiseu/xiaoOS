@@ -42,7 +42,7 @@ void OS_MemIncFreeBlkCnt(u32 v_blkCnt)
     return;
 }
 
-void OS_MemSetTotalFreeBlkCnt(u32 v_cnt)
+void OS_MemTotalFreeBlkCntInit(u32 v_cnt)
 {
     g_memMgt.totalBlkCnt = v_cnt;
     g_memMgt.freeBlkCnt = v_cnt;
@@ -111,7 +111,7 @@ void OS_MemSplitToBlk(void)
     LIST_NODE_S *freeBlkListHead = &g_memMgt.freeBlkListHead;
 
     totalBlkCnt = OS_MemCalcBlkCnt();
-    OS_MemSetTotalFreeBlkCnt(totalBlkCnt);
+    OS_MemTotalFreeBlkCntInit(totalBlkCnt);
     if (0 == g_memMgt.totalBlkCnt)
     {
         printf("%s(line:%d) FAIL! totalBlkCnt=0! \r\n", __func__, __LINE__);
