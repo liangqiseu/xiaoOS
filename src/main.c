@@ -28,7 +28,7 @@ int main(void)
     OS_MemInit();
     
     printf("TEST OK!\r\n");
-    while(1){
+    while(0){
     }
     //OS_Schedule();
     return OS_OK;

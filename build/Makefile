@@ -2,6 +2,7 @@ CC:=gcc
 ASM:=gcc
 
 INCLUDES:=-I. -I../includes
+CFLAGS:=-fprofile-arcs -ftest-coverage
 
 DIR_SRC:=../src
 DIR_TEST:=../test
@@ -15,10 +16,10 @@ OUTFILE:=start
 
 .PHONY:all clean
 all:$(OBJ_O)
-	$(CC) -o $(OUTFILE).out -Wl,-Map=$(OUTFILE).map ./*.o
+	$(CC) $(CFLAGS) -o $(OUTFILE).out -Wl,-Map=$(OUTFILE).map ./*.o
 	
 %.o:%.c
-	$(CC) $(INCLUDES) -c $< -o $(DIR_OBJ)/$(notdir $@)
+	$(CC) $(INCLUDES) $(CFLAGS) -c $< -o $(DIR_OBJ)/$(notdir $@)
 %.o:%.s
 	$(ASM) $(ASFLAG) -c $< -o $(DIR_OBJ)/$(notdir $@)
 
@@ -26,7 +27,8 @@ asm:
 	$(OBJDUMP) -D $(OUTFILE).elf > $(OUTFILE).asm
 
 clean:
-	rm -f *.o
+	rm -f *.o *.out
 	rm -f *.elf
 	rm -f *.map 
 	rm -f *.asm
+	rm -rf *.gcda *.gcno *.gcov	

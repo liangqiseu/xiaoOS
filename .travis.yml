@@ -3,3 +3,8 @@ language: c
 script:
     cd ./build
     make
+    ./start.out
+    gcov mian.c os_mem.c os_task.c
+    
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
