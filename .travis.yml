@@ -3,7 +3,7 @@ language: c
 script:
   - cd ./build
   - make
-  - ./start.out
+  - ./start.out test
   - gcov main.c os_mem.c os_task.c
   - mv *.* ../
     
