@@ -5,7 +5,7 @@ script:
   - make
   - ./start.out test
   - gcov main.c os_mem.c os_task.c
-  - mv mian.* os_mem.* os_task.* ../
+  - mv main.* os_mem.* os_task.* ../
     
 after_success:
   - bash <(curl -s https://codecov.io/bash)
