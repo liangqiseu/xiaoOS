@@ -7,11 +7,7 @@
 #include "os_mem.h"
 
 MEM_MGT_S g_memMgt = { 0 };
-
-/*os kerbel pool id*/
-u8 g_memOsPool_1KB = MEM_INVALID_POOL;
-u8 g_memOsPool_256B = MEM_INVALID_POOL;
-u8 g_memOsPool_64B = MEM_INVALID_POOL;
+MEM_BUILDIN_POOL_S g_memOsPool = { 0 };
 
 /*v_alignSize must be the power of 2*/
 PTR OS_MemAlignToX(PTR v_addrOrLen, u32 v_alignSize)
@@ -284,7 +280,7 @@ void OS_MemShowPool(u8 v_poolId)
     }
 
     printf("Pool:\r\n");
-    for (poolIdx = poolIdx; poolIdx <= poolIdxMax; poolIdx++)
+    for (; poolIdx <= poolIdxMax; poolIdx++)
     {
         poolMgt = &g_memMgt.poolMgt[poolIdx];
         printf("  idx:0x%x poolName=%s defaultPageNum=0x%x pageSize=0x%x totalPageCnt=0x%x freePageCnt=0x%x mid=0x%x \r\n", 
@@ -391,16 +387,37 @@ u32 OS_MemPagePoolCreate(u32 v_mid, u32 v_pageSize, char* v_pPoolName, u32 v_ref
     return pPagePoolMgt->poolId;
 }
 
+void* OS_MemPageAlloc(u8 v_poolId)
+{
+    void *pAddr = NULL;
+    MEM_PAGE_HEAD_S *pPageHead = NULL;
+    MEM_PAGE_POOL_MGT_S *pPagePoolMgt = NULL;
+    
+    pPagePoolMgt = &g_memMgt.poolMgt[v_poolId];
+    if (0 == pPagePoolMgt->freePageCnt)
+    {
+        if (MEM_OK != OS_MemSplitBlkToPagePool(pPagePoolMgt))
+        {
+            return NULL;
+        }
+    }
+
+    pPageHead = (MEM_PAGE_HEAD_S*)(pPagePoolMgt->freePageListHead.next);
+    return pPageHead->pPageAddr;
+}
+
 
 void OS_MemBuiltinPoolInit(void)
 {
-    g_memOsPool_1KB = OS_MemPagePoolCreate(MID_OS,1024,"osPool_1KB",2);
-    g_memOsPool_256B = OS_MemPagePoolCreate(MID_OS,256,"osPool256B",2);
-    g_memOsPool_64B = OS_MemPagePoolCreate(MID_OS,64,"osPool64B",2);
-    
-    if(MEM_INVALID_POOL == g_memOsPool_1KB || MEM_INVALID_POOL == g_memOsPool_256B || MEM_INVALID_POOL == g_memOsPool_64B)
+    g_memOsPool.memOsPool_64B = OS_MemPagePoolCreate(MID_OS,64,"osPool_1KB",2);
+    g_memOsPool.memOsPool_128B = OS_MemPagePoolCreate(MID_OS,64,"osPool_1KB",2);
+    //g_memOsPool.memOsPool_512B = OS_MemPagePoolCreate(MID_OS,64,"osPool_1KB",2);
+    g_memOsPool.memOsPool_1KB = OS_MemPagePoolCreate(MID_OS,64,"osPool_1KB",2);
+    g_memOsPool.memOsPoolMaxSize = 1024;
+
+    if(MEM_INVALID_POOL == g_memOsPool.memOsPool_64B || MEM_INVALID_POOL == g_memOsPool.memOsPool_128B || MEM_INVALID_POOL == g_memOsPool.memOsPool_1KB)
     {
-        printf("%s(line:%d) FAIL! %d %d %d \r\n",__func__, __LINE__, g_memOsPool_1KB, g_memOsPool_256B, g_memOsPool_64B);
+        printf("%s(line:%d) FAIL! %d %d %d \r\n",__func__, __LINE__, g_memOsPool.memOsPool_64B, g_memOsPool.memOsPool_128B, g_memOsPool.memOsPool_1KB);
     }
     
     return;
@@ -408,13 +425,21 @@ void OS_MemBuiltinPoolInit(void)
 
 void OS_MemCfgInit(void *v_pMemAddr, u32 v_memLen, u32 v_blkSize)
 {
+    u8 poolIdx = 0;
+    
     g_memMgt.pMemStartAddr = v_pMemAddr;
     g_memMgt.memLen = v_memLen;
     g_memMgt.blkSize = v_blkSize;
     g_memMgt.pMemAlignStartAddr = (void*)OS_MemAlignToX((PTR)g_memMgt.pMemStartAddr, g_memMgt.blkSize);
     g_memMgt.freeBlkCnt = 0;
     g_memMgt.totalBlkCnt = 0;
+    
     memset(&g_memMgt.poolMgt[0],0,(sizeof(MEM_PAGE_POOL_MGT_S) * MEM_PAGE_POOL_MAX_NUM));
+    for (poolIdx = 0; poolIdx < MEM_PAGE_POOL_MAX_NUM; poolIdx ++)
+    {
+        g_memMgt.poolMgt[poolIdx].mid = MID_MAX;
+    }
+    
     return;
 }
 
@@ -440,11 +465,40 @@ void OS_MemInit(void)
     return;
 }
 
+
+u8 OS_MemFindOptimalPagePool(u32 v_memSize)
+{
+    u8 poolId = 0;
+    MEM_PAGE_POOL_MGT_S *poolMgt = &g_memMgt.poolMgt[0];
+
+    while (MID_OS == poolMgt->mid)
+    {
+        if (v_memSize <= poolMgt->pageSize)
+        {
+            return poolId;
+        }
+        poolMgt++;
+        poolId++;
+    }
+
+    return MEM_INVALID_POOL;
+}
+
+
 void* OS_MemAlloc(u32 v_mid, u32 v_memSize)
 {
+    u8 poolId = 0;
+    u8 blkCnt = 0;
     u32 blkSize = g_memMgt.blkSize;
+    
+    poolId = OS_MemFindOptimalPagePool(v_memSize);
+    if (MEM_INVALID_POOL != poolId)
+    {
+        return OS_MemPageAlloc(poolId);
+    }
 
-    return NULL;
+    blkCnt = v_memSize / blkSize + 1;
+    return OS_MemBlkAlloc(blkCnt);
 }
 
 void OS_MemFree(void *memAddr)

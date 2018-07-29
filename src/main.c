@@ -5,6 +5,7 @@
 
 #include<stdio.h>
 #include<stdlib.h>
+#include<string.h>
 
 #include "../inlcudes/config.h"
 #include "../inlcudes/list_api.h"
@@ -15,19 +16,28 @@ extern void LIST_Test(void);
 extern void Mem_Test(void);
 
 
-int main(void)
+int main(int argc,char *argv[])
 {
-    u32 taskAId = 0;
-    u32 taskBId = 0;
+    int i = 0;
+    //int testRst = 0; 
+    for(i=0;i<argc;i++)
+    {
+        printf("arcv[%d] is %s\n",i,argv[i]);
+    }
 
-    /** all testcase **/
-    LIST_Test();
-    Mem_Test();
+    if (2 == argc)
+    {
+        /** all testcase **/
+        LIST_Test();
+        Mem_Test();
+        printf("TEST OK!\r\n");
+    }
+    else
+    {
+        OS_MemInit();
+        printf("OS MEM INIT OK!\r\n");
+    }
 
-
-    OS_MemInit();
-    
-    printf("TEST OK!\r\n");
     while(0){
     }
     //OS_Schedule();

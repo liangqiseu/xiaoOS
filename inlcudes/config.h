@@ -15,7 +15,8 @@
 typedef enum tagMOUDLE_ID_E
 {
     MID_OS = 0x0,
-    MID_TEST
+    MID_TEST,
+    MID_MAX,
 }MOUDLE_ID_E;
 
 

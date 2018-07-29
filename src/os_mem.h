@@ -48,6 +48,24 @@ typedef struct tagMEM_MGT_S
     u16 freeBlkCnt;
 }MEM_MGT_S;
 
+
+typedef struct tagMEM_ALLOC_STATIC_S
+{
+    u8 mid;
+    u32 allocTimes;
+    u32 freeTimes;
+}MEM_ALLOC_STATIC_S;
+
+typedef struct tagMEM_BUILDIN_POOL_S
+{
+    u8 memOsPool_64B;
+    u8 memOsPool_128B;
+    u8 memOsPool_512B;
+    u8 memOsPool_1KB;
+    u16 memOsPoolMaxSize;
+}MEM_BUILDIN_POOL_S;
+
+
 typedef enum tagOS_MEM_POOL_IDX_E
 {
     OS_MEM_POOL_COMMON = 0x0,

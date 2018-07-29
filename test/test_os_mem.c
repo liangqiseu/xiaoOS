@@ -101,7 +101,6 @@ u32 TEST_MemSplitToblk(u32 v_memLen, u32 v_blkSize)
     u32 blkHeadCnt = 0;
     u32 freeBlkCnt = 0;
     void *pMemStartAddr = NULL;
-    PTR pTmpAddr = 0;
     LIST_NODE_S *pListHead = &g_memMgt.freeBlkListHead;
     LIST_NODE_S *pTempHead = NULL;
     MEM_BLK_HEAD_S *pBlkHead = NULL;
@@ -301,12 +300,10 @@ u32 TEST_MemSplitBlkToPagePool(u16 v_pageSize, u16 v_refPageNum)
     u32 memLen = 0x3000;
     u32 blkSize = 0x1000;
     u32 pageIdx = 0;
-    u32 freeBlkCnt = 0;
     u32 freePageCnt = 0;
     void *pMemStartAddr = NULL;
     PTR pPageAddr = 0;
     PTR pPageHeadAddr = 0;
-    PTR blkAddr = 0;
     MEM_PAGE_HEAD_S *pPageHead = NULL;
     MEM_PAGE_HEAD_S *pFirstPageHead = NULL;
     MEM_PAGE_POOL_MGT_S tempPool = { 0 };
