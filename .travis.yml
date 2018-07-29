@@ -1,11 +1,11 @@
 language: c
 
 script:
-    cd ./build
-    make
-    ./start.out
-    gcov main.c os_mem.c os_task.c
-    mv *.* ../
+  - cd ./build
+  - make
+  - ./start.out
+  - gcov main.c os_mem.c os_task.c
+  - mv *.* ../
     
 after_success:
   - bash <(curl -s https://codecov.io/bash)
