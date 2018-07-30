@@ -5,6 +5,7 @@
 #ifndef _CONFIG_H_
 #define _CONFIG_H_
 
+#include<stddef.h>
 
 /* customized items*/
 #define MEM_LEN
@@ -33,11 +34,6 @@ typedef unsigned long long PTR;  //64bit addr
 
 #define  TRUE 1
 #define  FALSE 0
-
-#define TEST_PASS 1
-#define TEST_FAIL 0
-
-
 
 
 #endif

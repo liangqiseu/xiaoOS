@@ -5,6 +5,9 @@
 #include "../inlcudes/config.h"
 #include "../src/os_mem.h"
 
+#include "test_api.h"
+
+
 extern PTR OS_MemAlignToX(PTR v_addr, u32 v_alignSize);
 u32 TEST_MemAlignToX(void)
 {
@@ -291,8 +294,26 @@ u32 TEST_MemGetUnusedBlkHead(void)
 }
 
 
-extern void OS_MemSplitBlkToPagePool(MEM_PAGE_POOL_MGT_S *v_pPagePoolMgt);
+
 extern u32 OS_MemCalcOptimalBlkCnt(u16 v_pageSize, u16 v_refPageCnt);
+u32 TEST_MemCalcOptimalBlkCnt(void)
+{
+    //Pre-condition
+    g_memMgt.blkSize = 4096;
+
+    //Excute
+    if (!(1 == OS_MemCalcOptimalBlkCnt(1000,10) \
+        && 2 == OS_MemCalcOptimalBlkCnt(1025,5)))
+    {
+        printf("%s(line:%d): FAIL! \r\n",__func__,__LINE__);
+        return TEST_FAIL;
+    }
+
+    printf("%s(line:%d): PASS! \r\n",__func__,__LINE__);
+    return TEST_PASS;
+}
+
+extern void OS_MemSplitBlkToPagePool(MEM_PAGE_POOL_MGT_S *v_pPagePoolMgt);
 u32 TEST_MemSplitBlkToPagePool(u16 v_pageSize, u16 v_refPageNum)
 {
     u16 reqBlkCnt = 0;
@@ -369,7 +390,7 @@ u32 TEST_MemSplitBlkToPagePool(u16 v_pageSize, u16 v_refPageNum)
 u32 TEST_MemSplitBlkToPagePoolCaseSet(void)
 {
     u32 res = TEST_PASS;
-    res &= TEST_MemSplitBlkToPagePool(1024, 2);
+    res |= TEST_MemSplitBlkToPagePool(1024, 2);
 
     if (TEST_PASS == res)
     {
@@ -380,9 +401,38 @@ u32 TEST_MemSplitBlkToPagePoolCaseSet(void)
 }
 
 
+extern u8 OS_MemFindOptimalPagePool(u32 v_memSize);
+u32 TEST_MemFindOptimalPagePool(void)
+{
+    MEM_PAGE_POOL_MGT_S *poolMgt = &g_memMgt.poolMgt[0];
+
+    //Pre-condition
+    poolMgt->mid = MID_OS;
+    poolMgt->pageSize = 64;
+    poolMgt++;
+    poolMgt->mid = MID_OS;
+    poolMgt->pageSize = 128;
+    poolMgt++;
+    poolMgt->mid = MID_OS;
+    poolMgt->pageSize = 1024;
+    poolMgt++;
+    poolMgt->mid = MID_TEST;
+
+    //Excute
+    if (!(2 == OS_MemFindOptimalPagePool(512) \
+        && 1 == OS_MemFindOptimalPagePool(128) \
+        && 0 == OS_MemFindOptimalPagePool(32) \
+        && MEM_INVALID_POOL == OS_MemFindOptimalPagePool(1025)))
+    {
+        printf("%s(line:%d): FAIL! \r\n",__func__,__LINE__);
+        return TEST_FAIL;
+    }
+
+    printf("%s(line:%d): PASS! \r\n",__func__,__LINE__);
+    return TEST_PASS;
+}
+
 extern void OS_MemInit(void);
-
-
 u32 TEST_MemInit(void)
 {
     
@@ -391,14 +441,17 @@ u32 TEST_MemInit(void)
 
 
 
-void Mem_Test(void)
+u32 Mem_Test(void)
 {
-    (void)TEST_MemAlignToX();
-    (void)TEST_MemCalcBlkCnt();
-    (void)TEST_MemSplitToblkCaseSet();
-    (void)TEST_MemSplitBlkToPagePoolCaseSet();
-    (void)TEST_MemGetBlkNodeByCnt();
-    (void)TEST_MemBlkNodeInsertToFreeList();
-    return;
+    u32 res = TEST_PASS;
+    res |= TEST_MemAlignToX();
+    res |= TEST_MemCalcBlkCnt();
+    res |= TEST_MemSplitToblkCaseSet();
+    res |= TEST_MemSplitBlkToPagePoolCaseSet();
+    res |= TEST_MemGetBlkNodeByCnt();
+    res |= TEST_MemBlkNodeInsertToFreeList();
+    res |= TEST_MemFindOptimalPagePool();
+    res |= TEST_MemCalcOptimalBlkCnt();
+    return res;
 }
 

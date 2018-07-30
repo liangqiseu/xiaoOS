@@ -2,6 +2,8 @@
 #include "../inlcudes/list_api.h"
 #include "../inlcudes/config.h"
 
+#include "test_api.h"
+
 
 u32 TEST_ListInit(void)
 {
@@ -137,13 +139,14 @@ u32 TEST_ListGetEntry(void)
     return TEST_PASS;
 }
 
-void LIST_Test(void)
+u32 LIST_Test(void)
 {
-    (void)TEST_ListInit();
-    (void)TEST_ListAddHead();
-    (void)TEST_ListDel();
-    (void)TEST_ListGetEntry();
-    return;
+    u32 res = TEST_PASS;
+    res |= TEST_ListInit();
+    res |= TEST_ListAddHead();
+    res |= TEST_ListDel();
+    res |= TEST_ListGetEntry();
+    return res;
 }
 
 

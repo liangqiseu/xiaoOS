@@ -11,35 +11,48 @@
 #include "../inlcudes/list_api.h"
 #include "../inlcudes/os_task_api.h"
 #include "../inlcudes/os_mem_api.h"
-
-extern void LIST_Test(void);
-extern void Mem_Test(void);
+#include "../test/test_api.h"
 
 
-int main(int argc,char *argv[])
+void TEST_Start(void)
 {
-    int i = 0;
-    //int testRst = 0; 
-    for(i=0;i<argc;i++)
-    {
-        printf("arcv[%d] is %s\n",i,argv[i]);
-    }
+    u32 testRes = TEST_PASS;
 
-    if (2 == argc)
+    /** all testcase **/
+    testRes |= LIST_Test();
+    testRes |= Mem_Test();
+    if (TEST_PASS == testRes)
     {
-        /** all testcase **/
-        LIST_Test();
-        Mem_Test();
-        printf("TEST OK!\r\n");
+        printf("TEST PASS!\r\n");
     }
     else
     {
+        printf("TEST FAIL!\r\n");
+    }
+    
+    return;
+}
+
+int main(int argc,char *argv[])
+{
+
+    if (1 == argc)
+    {
+#ifndef WIN32
         OS_MemInit();
         printf("OS MEM INIT OK!\r\n");
+#else
+        TEST_Start();
+#endif
+    }
+    else
+    {
+        if (0 == strcmp(argv[1], "test"))
+        {
+            TEST_Start();
+        }
     }
 
-    while(0){
-    }
     //OS_Schedule();
     return OS_OK;
 }

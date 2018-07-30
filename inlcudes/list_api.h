@@ -5,14 +5,7 @@
 #ifndef _LIST_API_H_
 #define _LIST_API_H_
 
-#include <stdio.h>
 #include "config.h"
-
-#ifndef NULL 
-#define NULL ((void*)0)
-#endif
-
-
 
 typedef struct tagLIST_NODE_S
 {
