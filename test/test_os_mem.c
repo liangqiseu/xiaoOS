@@ -41,9 +41,9 @@ u32 TEST_MemAlignToX(void)
 }
 
 
-extern u32 OS_MemCalcBlkCnt(void);
+extern u32 OS_MemCalcTotalBlkCnt(void);
 extern MEM_MGT_S g_memMgt;
-u32 TEST_MemCalcBlkCnt(void)
+u32 TEST_MemCalcTotalBlkCnt(void)
 {
     u32 totalBlkCnt = 0;
     g_memMgt.pMemStartAddr = (void*)0x1;
@@ -51,7 +51,7 @@ u32 TEST_MemCalcBlkCnt(void)
     g_memMgt.blkSize = MEM_BLK_SZIE;
 
     g_memMgt.pMemAlignStartAddr = (void*)OS_MemAlignToX((PTR)g_memMgt.pMemStartAddr, g_memMgt.blkSize);
-    totalBlkCnt = OS_MemCalcBlkCnt();
+    totalBlkCnt = OS_MemCalcTotalBlkCnt();
     if (0x0 != totalBlkCnt)
     {
         printf("%s(line:%d) FAIL! totalBlkCnt=%x! \r\n",__func__,__LINE__, totalBlkCnt);
@@ -60,7 +60,7 @@ u32 TEST_MemCalcBlkCnt(void)
 
     g_memMgt.memLen = 0x1000;
     g_memMgt.pMemAlignStartAddr = (void*)OS_MemAlignToX((PTR)g_memMgt.pMemStartAddr, g_memMgt.blkSize);
-    totalBlkCnt = OS_MemCalcBlkCnt();
+    totalBlkCnt = OS_MemCalcTotalBlkCnt();
     if (0x0 != totalBlkCnt)
     {
         printf("%s(line:%d) FAIL! totalBlkCnt=%x! \r\n",__func__,__LINE__, totalBlkCnt);
@@ -69,7 +69,7 @@ u32 TEST_MemCalcBlkCnt(void)
 
     g_memMgt.memLen = 0x2000;
     g_memMgt.pMemAlignStartAddr = (void*)OS_MemAlignToX((PTR)g_memMgt.pMemStartAddr, g_memMgt.blkSize);
-    totalBlkCnt = OS_MemCalcBlkCnt();
+    totalBlkCnt = OS_MemCalcTotalBlkCnt();
     if (0x1 != totalBlkCnt)
     {
         printf("%s(line:%d) FAIL! totalBlkCnt=%x! \r\n",__func__,__LINE__, totalBlkCnt);
@@ -79,7 +79,7 @@ u32 TEST_MemCalcBlkCnt(void)
     g_memMgt.pMemStartAddr = (void*)0x1000;
     g_memMgt.memLen = 0x13000;
     g_memMgt.pMemAlignStartAddr = (void*)OS_MemAlignToX((PTR)g_memMgt.pMemStartAddr, g_memMgt.blkSize);
-    totalBlkCnt = OS_MemCalcBlkCnt();
+    totalBlkCnt = OS_MemCalcTotalBlkCnt();
     if (0x13 != totalBlkCnt)
     {
         printf("%s(line:%d) FAIL! totalBlkCnt=%x! \r\n",__func__,__LINE__, totalBlkCnt);
@@ -445,7 +445,7 @@ u32 Mem_Test(void)
 {
     u32 res = TEST_PASS;
     res |= TEST_MemAlignToX();
-    res |= TEST_MemCalcBlkCnt();
+    res |= TEST_MemCalcTotalBlkCnt();
     res |= TEST_MemSplitToblkCaseSet();
     res |= TEST_MemSplitBlkToPagePoolCaseSet();
     res |= TEST_MemGetBlkNodeByCnt();

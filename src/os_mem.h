@@ -65,6 +65,26 @@ typedef struct tagMEM_BUILDIN_POOL_S
     u16 memOsPoolMaxSize;
 }MEM_BUILDIN_POOL_S;
 
+typedef struct tagMEM_ALLOC_HEAD_S
+{
+    LIST_NODE_S node;
+    u32 actualSize;
+}MEM_ALLOC_HEAD_S;
+
+typedef struct tagMEM_STATS_S
+{
+    LIST_NODE_S usedMemList;
+    u32 totalAllocTime;
+    u32 totalFreeTime;
+    u32 curCumulSize;
+}MEM_STATS_S;
+
+
+typedef struct tagMEM_ALLOC_MGT_S
+{
+    MEM_STATS_S allocStats[MID_MAX];
+}MEM_ALLOC_MGT_S;
+
 
 typedef enum tagOS_MEM_POOL_IDX_E
 {

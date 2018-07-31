@@ -8,6 +8,7 @@
 
 MEM_MGT_S g_memMgt = { 0 };
 MEM_BUILDIN_POOL_S g_memOsPool = { 0 };
+MEM_ALLOC_MGT_S g_memAllocMgt = { 0 };
 
 /*v_alignSize must be the power of 2*/
 PTR OS_MemAlignToX(PTR v_addrOrLen, u32 v_alignSize)
@@ -45,7 +46,7 @@ void OS_MemTotalFreeBlkCntInit(u32 v_cnt)
     return;
 }
 
-u32 OS_MemCalcBlkCnt(void)
+u32 OS_MemCalcTotalBlkCnt(void)
 {
     u32 blkCnt;
     u32 blkSize = g_memMgt.blkSize;
@@ -106,7 +107,7 @@ void OS_MemSplitToBlk(void)
     MEM_BLK_HEAD_S *pFirstBlkHead = NULL;
     LIST_NODE_S *freeBlkListHead = &g_memMgt.freeBlkListHead;
 
-    totalBlkCnt = OS_MemCalcBlkCnt();
+    totalBlkCnt = OS_MemCalcTotalBlkCnt();
     OS_MemTotalFreeBlkCntInit(totalBlkCnt);
     if (0 == g_memMgt.totalBlkCnt)
     {
@@ -213,6 +214,25 @@ void* OS_MemBlkAlloc(u32 v_blkCnt)
 
     return pBlkAddr;
 }
+
+void *OS_MemBlkFindNeighborNode(u32 v_blkCnt)
+{
+    MEM_BLK_HEAD_S *pBlkHead = NULL;
+
+    
+    return pBlkHead;
+}
+
+
+
+void OS_MemBlkFree(u32 v_blkCnt)
+{
+    MEM_BLK_HEAD_S *pBlkHead = NULL;
+
+    pBlkHead = (MEM_BLK_HEAD_S*)OS_MemBlkFindNeighborNode(v_blkCnt);
+    return ;
+}
+
 
 
 void* OS_MemGetUnusedBlkHead(void)
@@ -403,9 +423,20 @@ void* OS_MemPageAlloc(u8 v_poolId)
     }
 
     pPageHead = (MEM_PAGE_HEAD_S*)(pPagePoolMgt->freePageListHead.next);
+    LIST_DEL_HEAD(&pPagePoolMgt->freePageListHead);
     return pPageHead->pPageAddr;
 }
 
+void OS_MemPageFree(u8 v_poolId, void *v_pMemAddr)
+{
+    MEM_PAGE_HEAD_S *pPageHead = NULL;
+    MEM_PAGE_POOL_MGT_S *pPagePoolMgt = NULL;
+    
+    pPagePoolMgt = &g_memMgt.poolMgt[v_poolId];
+    pPageHead = (MEM_PAGE_HEAD_S*)((PTR)v_pMemAddr + OS_MemAlignToPtr(sizeof(MEM_PAGE_HEAD_S)));
+    LIST_ADD_TAIL(&pPageHead->pageNode, &pPagePoolMgt->freePageListHead);
+    return;
+}
 
 void OS_MemBuiltinPoolInit(void)
 {
@@ -484,24 +515,77 @@ u8 OS_MemFindOptimalPagePool(u32 v_memSize)
     return MEM_INVALID_POOL;
 }
 
+void OS_MemUpdateAllocMgt(u32 v_mid, u32 v_actualSize,void* v_pMemAddr)
+{
+    MEM_ALLOC_HEAD_S *pAllocHead = NULL;
+    MEM_STATS_S *pMemStats = &g_memAllocMgt.allocStats[v_mid];
+
+    pAllocHead = (MEM_ALLOC_HEAD_S*)v_pMemAddr;
+    pAllocHead->actualSize = v_actualSize;
+    LIST_ADD_TAIL(&pAllocHead->node, &pMemStats->usedMemList);
+    
+    pMemStats->totalAllocTime++;
+    pMemStats->curCumulSize += v_actualSize;
+    return;
+}
+
 
 void* OS_MemAlloc(u32 v_mid, u32 v_memSize)
 {
     u8 poolId = 0;
     u8 blkCnt = 0;
+    u32 actualSize = 0;
     u32 blkSize = g_memMgt.blkSize;
-    
-    poolId = OS_MemFindOptimalPagePool(v_memSize);
+    void *pAddr = NULL;
+
+    actualSize = (u32)OS_MemAlignToPtr(sizeof(MEM_ALLOC_HEAD_S)) + v_memSize;
+
+    /*alloc from build-in pool or blk list*/
+    poolId = OS_MemFindOptimalPagePool(actualSize);
     if (MEM_INVALID_POOL != poolId)
     {
-        return OS_MemPageAlloc(poolId);
+        pAddr = OS_MemPageAlloc(poolId);
+    }
+    else
+    {
+        blkCnt = actualSize / blkSize;
+        if (0 != actualSize / blkSize)
+        {
+            blkCnt++;
+        }
+        pAddr = OS_MemBlkAlloc(blkCnt);
+    }
+    if (NULL == pAddr)
+    {
+        return NULL;
     }
 
-    blkCnt = v_memSize / blkSize + 1;
-    return OS_MemBlkAlloc(blkCnt);
+    OS_MemUpdateAllocMgt(v_mid,actualSize,pAddr);
+    pAddr = (void*)((PTR)pAddr - (u32)OS_MemAlignToPtr(sizeof(MEM_ALLOC_HEAD_S)));
+    
+    return pAddr;
+    
 }
 
-void OS_MemFree(void *memAddr)
+void OS_MemFree(void *v_pMemAddr)
 {
+    u8 poolId = 0;
+    u32 blkCnt = 0;
+    MEM_ALLOC_HEAD_S *pAllocHead = NULL;
+
+    pAllocHead = (MEM_ALLOC_HEAD_S*)((PTR)v_pMemAddr + OS_MemAlignToPtr(sizeof(MEM_ALLOC_HEAD_S)));
+    
+    poolId = OS_MemFindOptimalPagePool(pAllocHead->actualSize);
+    if (MEM_INVALID_POOL != poolId)
+    {
+        OS_MemPageFree(poolId, v_pMemAddr);
+    }
+    else
+    {
+        /*no need to care about align*/
+        blkCnt = pAllocHead->actualSize / g_memMgt.blkSize;
+        OS_MemBlkFree(blkCnt);
+    }
+
     return;
 }
