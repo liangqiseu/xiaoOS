@@ -238,6 +238,7 @@ u32 TEST_MemBlkNodeInsertToFreeList(void)
     MEM_BLK_HEAD_S blkNodeTwo = {{0,0},0,0};
     MEM_BLK_HEAD_S blkNodeThree = {{0,0},0,0};
     MEM_BLK_HEAD_S blkNodeFour = {{0,0},0,0};
+    MEM_BLK_HEAD_S blkNodeFive = {{0,0},0,0};
     MEM_BLK_HEAD_S insertNodeOne = {{0,0},0,0};
     MEM_BLK_HEAD_S insertNodeTwo = {{0,0},0,0};
     MEM_BLK_HEAD_S insertNodeThree = {{0,0},0,0 };
@@ -248,11 +249,13 @@ u32 TEST_MemBlkNodeInsertToFreeList(void)
     blkNodeTwo.blkCnt = 3;
     blkNodeThree.blkCnt = 4;
     blkNodeFour.blkCnt = 6;
+    blkNodeFive.blkCnt = 0;
 
     LIST_ADD_TAIL(&(blkNodeOne.blkNode),&g_memMgt.freeBlkListHead);
     LIST_ADD_TAIL(&(blkNodeTwo.blkNode),&g_memMgt.freeBlkListHead);
     LIST_ADD_TAIL(&(blkNodeThree.blkNode),&g_memMgt.freeBlkListHead);
     LIST_ADD_TAIL(&(blkNodeFour.blkNode),&g_memMgt.freeBlkListHead);
+    LIST_ADD_TAIL(&(blkNodeFive.blkNode),&g_memMgt.freeBlkListHead);
 
     //printf("%s(%d):%p %p %p %p!\r\n",__func__,__LINE__,
     //    &blkNodeOne.blkNode,&blkNodeTwo.blkNode,&blkNodeThree.blkNode,&blkNodeFour.blkNode);
@@ -287,12 +290,6 @@ u32 TEST_MemSplitOneBlkToBlkHeads(void)
 {
     return TEST_PASS;
 }
-
-u32 TEST_MemGetUnusedBlkHead(void)
-{
-    return TEST_PASS;
-}
-
 
 
 extern u32 OS_MemCalcOptimalBlkCnt(u16 v_pageSize, u16 v_refPageCnt);
@@ -432,11 +429,201 @@ u32 TEST_MemFindOptimalPagePool(void)
     return TEST_PASS;
 }
 
-extern void OS_MemInit(void);
-u32 TEST_MemInit(void)
+
+extern void *OS_MemBlkFindMergeableNode(u32 v_blkCnt, u32 v_blkIdx);
+u32 TEST_MemBlkFindMergeableNode(void)
 {
-    
+    MEM_BLK_HEAD_S *pBlkHead = NULL;
+    MEM_BLK_HEAD_S blkHeadOne = { 0 };
+    MEM_BLK_HEAD_S blkHeadTwo = { 0 };
+    MEM_BLK_HEAD_S blkHeadThree = { 0 };
+    LIST_NODE_S *pBlkListHead = &g_memMgt.freeBlkListHead;
+
+    //1
+    LIST_HEAD_INIT(pBlkListHead);
+    pBlkHead = (MEM_BLK_HEAD_S*)OS_MemBlkFindMergeableNode(1,1);
+    if (NULL != pBlkHead)
+    {
+        printf("%s(line:%d): FAIL! \r\n",__func__,__LINE__);
+        return TEST_FAIL;
+    }
+
+    //2
+    LIST_HEAD_INIT(pBlkListHead);
+    blkHeadOne.blkIdx = 5;
+    blkHeadOne.blkCnt = 2;
+    LIST_ADD_TAIL(&blkHeadOne.blkNode, pBlkListHead);
+    blkHeadTwo.blkIdx = 9;
+    blkHeadTwo.blkCnt = 3;
+    LIST_ADD_TAIL(&blkHeadTwo.blkNode, pBlkListHead);
+    blkHeadThree.blkIdx = 0;
+    blkHeadThree.blkCnt = 0;
+    LIST_ADD_TAIL(&blkHeadThree.blkNode, pBlkListHead);
+
+    pBlkHead = (MEM_BLK_HEAD_S*)OS_MemBlkFindMergeableNode(1,4);
+    if (pBlkHead != &blkHeadOne)
+    {
+        printf("%s(line:%d): FAIL! \r\n",__func__,__LINE__);
+        return TEST_FAIL;
+    }
+    pBlkHead = (MEM_BLK_HEAD_S*)OS_MemBlkFindMergeableNode(7,2);
+    if (pBlkHead != &blkHeadOne)
+    {
+        printf("%s(line:%d): FAIL! \r\n",__func__,__LINE__);
+        return TEST_FAIL;
+    }
+    pBlkHead = (MEM_BLK_HEAD_S*)OS_MemBlkFindMergeableNode(12,2);
+    if (pBlkHead != &blkHeadTwo)
+    {
+        printf("%s(line:%d): FAIL! \r\n",__func__,__LINE__);
+        return TEST_FAIL;
+    }
+    pBlkHead = (MEM_BLK_HEAD_S*)OS_MemBlkFindMergeableNode(13,2);
+    if (NULL != pBlkHead)
+    {
+        printf("%s(line:%d): FAIL! \r\n",__func__,__LINE__);
+        return TEST_FAIL;
+    }
+
+    printf("%s(line:%d): PASS! \r\n",__func__,__LINE__);
     return TEST_PASS;
+}
+
+
+extern void* OS_MemGetUnusedBlkHead(void);
+u32 TEST_MemGetUnusedBlkHead(void)
+{
+    MEM_BLK_HEAD_S *pBlkHead = NULL;
+    LIST_NODE_S *pBlkListHead = &g_memMgt.freeBlkListHead;
+
+    //1
+    LIST_HEAD_INIT(pBlkListHead);
+    pBlkHead = OS_MemGetUnusedBlkHead();
+    if (NULL != pBlkHead)
+    {
+        printf("%s(line:%d): FAIL! \r\n",__func__,__LINE__);
+        return TEST_FAIL;
+    }
+
+
+    printf("%s(line:%d): PASS! \r\n",__func__,__LINE__);
+    return TEST_PASS;
+}
+
+
+extern void OS_MemBlkFree(u32 v_blkIdx, u32 v_blkCnt);
+u32 TEST_MemBlkFree(void)
+{
+    LIST_NODE_S *pNode = NULL;
+    MEM_BLK_HEAD_S *pBlkHead = NULL;
+    MEM_BLK_HEAD_S blkHeadOne = { 0 };
+    MEM_BLK_HEAD_S blkHeadTwo = { 0 };
+    MEM_BLK_HEAD_S blkHeadThree = { 0 };
+    MEM_BLK_HEAD_S blkHeadFour = { 0 };
+    MEM_BLK_HEAD_S blkHeadFive = { 0 };
+    LIST_NODE_S *pBlkListHead = &g_memMgt.freeBlkListHead;
+
+    //Pre-condition
+    LIST_HEAD_INIT(pBlkListHead);
+    blkHeadOne.blkIdx = 5;
+    blkHeadOne.blkCnt = 2;
+    LIST_ADD_TAIL(&blkHeadOne.blkNode, pBlkListHead);
+    blkHeadTwo.blkIdx = 9;
+    blkHeadTwo.blkCnt = 3;
+    LIST_ADD_TAIL(&blkHeadTwo.blkNode, pBlkListHead);
+    blkHeadThree.blkIdx = 13;
+    blkHeadThree.blkCnt = 4;
+    LIST_ADD_TAIL(&blkHeadThree.blkNode, pBlkListHead);
+    blkHeadFour.blkIdx = 0;
+    blkHeadFour.blkCnt = 0;
+    LIST_ADD_TAIL(&blkHeadFour.blkNode, pBlkListHead);
+    blkHeadFive.blkIdx = 0;
+    blkHeadFive.blkCnt = 0;
+    LIST_ADD_TAIL(&blkHeadFive.blkNode, pBlkListHead);
+
+    OS_MemBlkFree(18,1);
+    if (!((1 == blkHeadFive.blkCnt) && (&blkHeadFive == (MEM_BLK_HEAD_S*)pBlkListHead->next)))
+    {
+        printf("%s(line:%d): FAIL! \r\n",__func__,__LINE__);
+        return TEST_FAIL;
+    }
+
+    OS_MemBlkFree(17,1);
+    pNode = &blkHeadTwo.blkNode;
+    if (!((6 == blkHeadThree.blkCnt) && (&blkHeadThree == (MEM_BLK_HEAD_S*)pNode->next)))
+    {
+        printf("%s(line:%d): FAIL! \r\n",__func__,__LINE__);
+        return TEST_FAIL;
+    }
+
+    printf("%s(line:%d): PASS! \r\n",__func__,__LINE__);
+    return TEST_PASS;
+}
+
+
+extern void* OS_MemAlloc(u32 v_mid, u32 v_memSize);
+extern void OS_MemInit(void);
+extern void OS_MemShowPool(u8 v_poolId);
+void OS_MemShowPagePoolList(MEM_PAGE_POOL_MGT_S *v_pPoolMgt);
+u32 TEST_MemAllocAndFree(void)
+{
+    u32 memLen = 0;
+    void *pMemAddr = NULL;
+    u32 freeBlkCnt = g_memMgt.freeBlkCnt;
+    LIST_NODE_S *pBlkListHead = &g_memMgt.freeBlkListHead;
+
+    //
+    void *pAllocPage64BOne = NULL;
+    void *pAllocPage1KBOne = NULL;
+    void *pAllocPage1KBTwo = NULL;
+    void *pAllocPage1KBThree = NULL;
+    void *pAllocPage1KBFour = NULL;
+    void *pAllocPageFour = NULL;
+    void *pAllocBlkOne = NULL;
+
+    //Pre-condition
+    memLen = 0x7000;
+    pMemAddr = malloc(memLen);
+    if (NULL == pMemAddr)
+    {
+        printf("%s(line:%d): FAIL! \r\n",__func__,__LINE__);
+        return TEST_FAIL;
+    }
+    OS_MemCfgInit(pMemAddr, memLen, 0x1000);
+    OS_MemInit();
+    //OS_MemShowBlkList(pBlkListHead);
+    //OS_MemShowPool(MEM_PAGE_POOL_MAX_NUM);
+    //OS_MemShowPagePoolList(&g_memMgt.poolMgt[2]);
+
+    //Excute
+    pAllocPage1KBOne = OS_MemAlloc(MID_OS,512);
+    pAllocPage1KBTwo = OS_MemAlloc(MID_OS,512);
+    pAllocPage1KBThree = OS_MemAlloc(MID_OS,512);
+    pAllocPage1KBFour = OS_MemAlloc(MID_OS,512);
+    
+    //OS_MemShowMgt();
+    //OS_MemShowPool(MEM_PAGE_POOL_MAX_NUM);
+    if (!((1 == g_memMgt.freeBlkCnt) && (2 == g_memMgt.poolMgt[2].freePageCnt)))
+    {
+        printf("%s(line:%d): FAIL! \r\n",__func__,__LINE__);
+        return TEST_FAIL;
+    }
+
+    OS_MemFree(pAllocPage1KBOne);
+    OS_MemFree(pAllocPage1KBTwo);
+    OS_MemFree(pAllocPage1KBThree);
+    OS_MemFree(pAllocPage1KBFour);
+    //OS_MemShowPagePoolList(&g_memMgt.poolMgt[2]);
+    if (!((1 == g_memMgt.freeBlkCnt) && (6 == g_memMgt.poolMgt[2].freePageCnt)))
+    {
+        printf("%s(line:%d): FAIL! \r\n",__func__,__LINE__);
+        return TEST_FAIL;
+    }
+
+    free(pMemAddr);
+    printf("%s(line:%d): PASS! \r\n",__func__,__LINE__);
+    return TEST_PASS;
+
 }
 
 
@@ -452,6 +639,10 @@ u32 Mem_Test(void)
     res |= TEST_MemBlkNodeInsertToFreeList();
     res |= TEST_MemFindOptimalPagePool();
     res |= TEST_MemCalcOptimalBlkCnt();
+    res |= TEST_MemBlkFindMergeableNode();
+    res |= TEST_MemGetUnusedBlkHead();
+    res |= TEST_MemBlkFree();
+    res |= TEST_MemAllocAndFree();
     return res;
 }
 
