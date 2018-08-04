@@ -68,6 +68,7 @@ typedef struct tagMEM_BUILDIN_POOL_S
 typedef struct tagMEM_ALLOC_HEAD_S
 {
     LIST_NODE_S node;
+    u8 mid;
     u32 actualSize;
 }MEM_ALLOC_HEAD_S;
 
@@ -97,6 +98,9 @@ typedef enum tagMEM_RTN_E
     MEM_OK = 0x0,
     MEM_FAIL,
 }MEM_RTN_E;
+
+
+void OS_MemBlkFree(u32 v_blkIdx, u32 v_blkCnt);
 
 #endif
 

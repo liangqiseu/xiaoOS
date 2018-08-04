@@ -163,11 +163,11 @@ void* OS_MemGetBlkHeadByCnt(u32 v_blkCnt)
 
 
 
+void OS_MemShowBlkList(void);
 void OS_MemBlkNodeInsertToFreeList(MEM_BLK_HEAD_S *v_pBlkHead)
 {
     MEM_BLK_HEAD_S *pBlkHeadNode = NULL;
     LIST_NODE_S *pFreeBlkListHead = &g_memMgt.freeBlkListHead;
-    
 
     if (0 == v_pBlkHead->blkCnt)
     {
@@ -184,6 +184,14 @@ void OS_MemBlkNodeInsertToFreeList(MEM_BLK_HEAD_S *v_pBlkHead)
         {
             LIST_ADD_TAIL(&v_pBlkHead->blkNode, pFreeBlkListHead);
             return;
+        }
+        else
+        {
+            if (0 == pBlkHeadNode->blkCnt)
+            {
+                LIST_ADD(&v_pBlkHead->blkNode, (&pBlkHeadNode->blkNode)->pre, &pBlkHeadNode->blkNode);
+                return;
+            }
         }
     }
     LIST_ADD(&v_pBlkHead->blkNode, (&pBlkHeadNode->blkNode)->pre, &pBlkHeadNode->blkNode);
@@ -215,48 +223,112 @@ void* OS_MemBlkAlloc(u32 v_blkCnt)
     return pBlkAddr;
 }
 
-void *OS_MemBlkFindNeighborNode(u32 v_blkCnt)
+void *OS_MemBlkFindMergeableNode(u32 v_blkIdx, u32 v_blkCnt)
 {
+    u32 blkEndIdx = v_blkIdx + v_blkCnt;
     MEM_BLK_HEAD_S *pBlkHead = NULL;
+    LIST_NODE_S *pFreeBlkListHead = &g_memMgt.freeBlkListHead;
 
-    
-    return pBlkHead;
+    pBlkHead = (MEM_BLK_HEAD_S*)pFreeBlkListHead->next;
+    while (pFreeBlkListHead != (LIST_NODE_S*)pBlkHead)
+    {
+        if (0 == pBlkHead->blkCnt)
+        {
+            return NULL;
+        }
+
+        if ((blkEndIdx == pBlkHead->blkIdx) 
+            || (v_blkIdx == (pBlkHead->blkIdx + pBlkHead->blkCnt)))
+        {
+            return pBlkHead;
+        }
+        pBlkHead = (MEM_BLK_HEAD_S*)pBlkHead->blkNode.next;
+    }
+
+    return NULL;
 }
 
 
-
-void OS_MemBlkFree(u32 v_blkCnt)
+void OS_MemBlkMerge(u32 v_blkIdx, u32 v_blkCnt, MEM_BLK_HEAD_S *v_pMergeBlkHead)
 {
-    MEM_BLK_HEAD_S *pBlkHead = NULL;
+    u32 newBlkIdx = 0;
+    u32 newBlkCnt = 0;
+    u32 blkEndIdx = v_blkIdx + v_blkCnt;
+    LIST_NODE_S *pFreeBlkListHead = &g_memMgt.freeBlkListHead;
 
-    pBlkHead = (MEM_BLK_HEAD_S*)OS_MemBlkFindNeighborNode(v_blkCnt);
-    return ;
+    if (blkEndIdx == v_pMergeBlkHead->blkIdx)
+    {
+        v_pMergeBlkHead->blkCnt += v_blkCnt;
+        v_pMergeBlkHead->blkIdx -= v_blkCnt;
+    }
+    else
+    {
+        v_pMergeBlkHead->blkCnt += v_blkCnt;
+        v_pMergeBlkHead->blkIdx = v_pMergeBlkHead->blkIdx;
+    }
+    newBlkIdx = v_pMergeBlkHead->blkIdx;
+    newBlkCnt = v_pMergeBlkHead->blkCnt;
+
+    //del old node and add this node to list tail
+    LIST_DEL(&v_pMergeBlkHead->blkNode, v_pMergeBlkHead->blkNode.pre, v_pMergeBlkHead->blkNode.next);
+    v_pMergeBlkHead->blkIdx = 0;
+    v_pMergeBlkHead->blkCnt = 0;
+    LIST_ADD_TAIL(&v_pMergeBlkHead->blkNode, pFreeBlkListHead);
+    OS_MemBlkFree(newBlkIdx, newBlkCnt);
+
+    return;
 }
-
 
 
 void* OS_MemGetUnusedBlkHead(void)
 {
+    void *pBlkAddr = NULL;
     MEM_BLK_HEAD_S *pTailNode = NULL;
     LIST_NODE_S *pFreeBlkListHead = &g_memMgt.freeBlkListHead;
 
     pTailNode = (MEM_BLK_HEAD_S*)(pFreeBlkListHead->pre);
-    if (0 == pTailNode->blkCnt)
+    if ((!LIST_IS_EMPTY(pFreeBlkListHead)) && (0 == pTailNode->blkCnt))
     {
+        LIST_DEL_TAIL(pFreeBlkListHead);
         return (void*)pTailNode;
     }
 
-    OS_MemSplitOneBlkToBlkHeads((PTR)OS_MemBlkAlloc(1));
-
-    pTailNode = (MEM_BLK_HEAD_S*)(pFreeBlkListHead->pre);
-    if (0 == pTailNode->blkCnt)
+    pBlkAddr = OS_MemBlkAlloc(1);
+    if (NULL == pBlkAddr)
     {
+        return NULL;
+    }
+    
+    OS_MemSplitOneBlkToBlkHeads((PTR)pBlkAddr);
+    pTailNode = (MEM_BLK_HEAD_S*)(pFreeBlkListHead->pre);
+    if ((!LIST_IS_EMPTY(pFreeBlkListHead)) && (0 == pTailNode->blkCnt))
+    {
+        LIST_DEL_TAIL(pFreeBlkListHead);
         return (void*)pTailNode;
     }
 
     return NULL;
 }
 
+void OS_MemBlkFree(u32 v_blkIdx, u32 v_blkCnt)
+{
+    MEM_BLK_HEAD_S *pBlkHead = NULL;
+
+    pBlkHead = (MEM_BLK_HEAD_S*)OS_MemBlkFindMergeableNode(v_blkIdx, v_blkCnt);
+    if (NULL != pBlkHead)
+    {
+        OS_MemBlkMerge(v_blkIdx, v_blkCnt, pBlkHead);
+    }
+    else
+    {
+        pBlkHead = (MEM_BLK_HEAD_S*)OS_MemGetUnusedBlkHead();
+        pBlkHead->blkIdx = v_blkIdx;
+        pBlkHead->blkCnt = v_blkCnt;
+        OS_MemBlkNodeInsertToFreeList(pBlkHead);
+    }
+
+    return ;
+}
 
 
 void OS_MemShowBlkList(void)
@@ -266,13 +338,20 @@ void OS_MemShowBlkList(void)
     MEM_BLK_HEAD_S *pBlkHead = NULL;
     LIST_NODE_S *pListHead = &g_memMgt.freeBlkListHead;
 
-    printf("BlockList:\r\n           self=0x%p next=0x%p pre=0x%p\r\n", pListHead,pListHead->next, pListHead->pre);
+    printf("BlockList:\r\n           self=0x%p next=0x%p pre=0x%p\r\n",
+            pListHead,
+            pListHead->next,
+            pListHead->pre);
     pBlkHead = (MEM_BLK_HEAD_S *)(pListHead->next);
-    for (blkIdx = 0; blkIdx < (totalBlkCnt - 1); blkIdx++)
+    while ((LIST_NODE_S*)pBlkHead != pListHead)
     {
         
         printf("  idx=0x%x: self=0x%p next=0x%p pre=0x%p blkCnt=0x%x blkIdx=0x%x \r\n", 
-                blkIdx, pBlkHead, pBlkHead->blkNode.next, pBlkHead->blkNode.pre, pBlkHead->blkCnt, pBlkHead->blkIdx);
+                blkIdx, pBlkHead,
+                pBlkHead->blkNode.next,
+                pBlkHead->blkNode.pre,
+                pBlkHead->blkCnt,
+                pBlkHead->blkIdx);
         pBlkHead = (MEM_BLK_HEAD_S *)(pBlkHead->blkNode.next);
     }
     return;
@@ -281,30 +360,66 @@ void OS_MemShowBlkList(void)
 void OS_MemShowMgt(void)
 {
     printf("MemMnt:\r\n  pMemStartAddr=0x%p\r\n  pMemAlignStartAddr=0x%p\r\n  totalBlkCnt=0x%x\r\n  freeBlkCnt=0x%x\r\n  memLen=0x%x\r\n  blkSize=0x%x\r\n", 
-        g_memMgt.pMemStartAddr, g_memMgt.pMemAlignStartAddr, g_memMgt.totalBlkCnt, g_memMgt.freeBlkCnt, g_memMgt.memLen, g_memMgt.blkSize);
+            g_memMgt.pMemStartAddr,
+            g_memMgt.pMemAlignStartAddr,
+            g_memMgt.totalBlkCnt,
+            g_memMgt.freeBlkCnt,
+            g_memMgt.memLen,
+            g_memMgt.blkSize);
 
     return;
 }
+
+
+void OS_MemShowPagePoolList(MEM_PAGE_POOL_MGT_S *v_pPoolMgt)
+{
+    u32 pageIdx = 0;
+    MEM_PAGE_HEAD_S *pPageHead = NULL;
+    LIST_NODE_S *pListHead = &v_pPoolMgt->freePageListHead;
+    pPageHead = (MEM_PAGE_HEAD_S*)pListHead->next;
+
+    while ((LIST_NODE_S*)pPageHead != pListHead)
+    {
+        
+        printf("  idx=0x%x: self=0x%p next=0x%p pre=0x%p poolIdx=0x%x blkIdx=0x%x \r\n", 
+                pageIdx, pPageHead,
+                pPageHead->pageNode.next,
+                pPageHead->pageNode.pre,
+                pPageHead->poolIdx,
+                pPageHead->blkIdx);
+        pPageHead = (MEM_PAGE_HEAD_S*)(pPageHead->pageNode.next);
+        pageIdx++;
+    }
+    return;
+}
+
+
 
 /*if v_poolId larger than OS_MEM_PAGE_POOL_MAX_NUM, means show all pool info*/
 void OS_MemShowPool(u8 v_poolId)
 {
     u8 poolIdx = 0;
-    u8 poolIdxMax = MEM_PAGE_POOL_MAX_NUM - 1;
+    u8 poolIdxMax = MEM_PAGE_POOL_MAX_NUM;
     MEM_PAGE_POOL_MGT_S *poolMgt = NULL;
 
-    if (MEM_PAGE_POOL_MAX_NUM >= v_poolId)
+    if (MEM_PAGE_POOL_MAX_NUM > v_poolId)
     {
         poolIdx = v_poolId;
         poolIdxMax = v_poolId;
     }
 
     printf("Pool:\r\n");
-    for (; poolIdx <= poolIdxMax; poolIdx++)
+    for (; poolIdx < poolIdxMax; poolIdx++)
     {
         poolMgt = &g_memMgt.poolMgt[poolIdx];
         printf("  idx:0x%x poolName=%s defaultPageNum=0x%x pageSize=0x%x totalPageCnt=0x%x freePageCnt=0x%x mid=0x%x \r\n", 
-            poolIdx, poolMgt->pPoolName, poolMgt->refPageNum, poolMgt->pageSize, poolMgt->totalPageCnt, poolMgt->freePageCnt, poolMgt->mid);
+                poolIdx,
+                poolMgt->pPoolName,
+                poolMgt->refPageNum,
+                poolMgt->pageSize,
+                poolMgt->totalPageCnt,
+                poolMgt->freePageCnt,
+                poolMgt->mid);
     }
     
     return;
@@ -424,31 +539,40 @@ void* OS_MemPageAlloc(u8 v_poolId)
 
     pPageHead = (MEM_PAGE_HEAD_S*)(pPagePoolMgt->freePageListHead.next);
     LIST_DEL_HEAD(&pPagePoolMgt->freePageListHead);
-    return pPageHead->pPageAddr;
+    pPagePoolMgt->freePageCnt--;
+    pAddr = (void*)((PTR)pPageHead + OS_MemAlignToPtr(sizeof(MEM_PAGE_HEAD_S)));
+    //printf("%s(line:%d) page alloc: %p \r\n",__func__, __LINE__, pAddr);
+    return pAddr;
 }
 
 void OS_MemPageFree(u8 v_poolId, void *v_pMemAddr)
 {
     MEM_PAGE_HEAD_S *pPageHead = NULL;
     MEM_PAGE_POOL_MGT_S *pPagePoolMgt = NULL;
-    
+
+    //printf("%s(line:%d) page free: %p \r\n",__func__, __LINE__, v_pMemAddr);
     pPagePoolMgt = &g_memMgt.poolMgt[v_poolId];
-    pPageHead = (MEM_PAGE_HEAD_S*)((PTR)v_pMemAddr + OS_MemAlignToPtr(sizeof(MEM_PAGE_HEAD_S)));
+    pPageHead = (MEM_PAGE_HEAD_S*)((PTR)v_pMemAddr - OS_MemAlignToPtr(sizeof(MEM_PAGE_HEAD_S)));
     LIST_ADD_TAIL(&pPageHead->pageNode, &pPagePoolMgt->freePageListHead);
+    pPagePoolMgt->freePageCnt++;
     return;
 }
 
 void OS_MemBuiltinPoolInit(void)
 {
-    g_memOsPool.memOsPool_64B = OS_MemPagePoolCreate(MID_OS,64,"osPool_1KB",2);
-    g_memOsPool.memOsPool_128B = OS_MemPagePoolCreate(MID_OS,64,"osPool_1KB",2);
+    g_memOsPool.memOsPool_64B = OS_MemPagePoolCreate(MID_OS,64,"osPool_64B",2);
+    g_memOsPool.memOsPool_128B = OS_MemPagePoolCreate(MID_OS,128,"osPool_128B",2);
     //g_memOsPool.memOsPool_512B = OS_MemPagePoolCreate(MID_OS,64,"osPool_1KB",2);
-    g_memOsPool.memOsPool_1KB = OS_MemPagePoolCreate(MID_OS,64,"osPool_1KB",2);
+    g_memOsPool.memOsPool_1KB = OS_MemPagePoolCreate(MID_OS,1024,"osPool_1KB",2);
     g_memOsPool.memOsPoolMaxSize = 1024;
 
     if(MEM_INVALID_POOL == g_memOsPool.memOsPool_64B || MEM_INVALID_POOL == g_memOsPool.memOsPool_128B || MEM_INVALID_POOL == g_memOsPool.memOsPool_1KB)
     {
-        printf("%s(line:%d) FAIL! %d %d %d \r\n",__func__, __LINE__, g_memOsPool.memOsPool_64B, g_memOsPool.memOsPool_128B, g_memOsPool.memOsPool_1KB);
+        printf("%s(line:%d) FAIL! %d %d %d \r\n",__func__, __LINE__, 
+                g_memOsPool.memOsPool_64B,
+                g_memOsPool.memOsPool_128B,
+
+                g_memOsPool.memOsPool_1KB);
     }
     
     return;
@@ -474,24 +598,28 @@ void OS_MemCfgInit(void *v_pMemAddr, u32 v_memLen, u32 v_blkSize)
     return;
 }
 
+void OS_MemStatsInit(void)
+{
+    u8 mid = 0;
+    MEM_STATS_S *pMemStats = NULL;
+
+    for (mid = 0; mid < MID_MAX; mid++)
+    {
+        pMemStats = &g_memAllocMgt.allocStats[mid];
+        LIST_HEAD_INIT(&pMemStats->usedMemList);
+    }
+
+    return;
+}
 
 void OS_MemInit(void)
 {
-    u32 memLen = 0x7000;
-    void *pMemAddr = NULL;
-
-    pMemAddr = malloc(memLen);
-    if (NULL == pMemAddr)
-    {
-        return;
-    }
-    OS_MemCfgInit(pMemAddr, memLen, 0x1000);
     OS_MemSplitToBlk();
     OS_MemShowMgt();
     OS_MemShowBlkList();
     OS_MemBuiltinPoolInit();
-    OS_MemShowPool(0);
-    free(pMemAddr);
+    OS_MemShowPool(MEM_PAGE_POOL_MAX_NUM);
+    OS_MemStatsInit();
 
     return;
 }
@@ -522,10 +650,22 @@ void OS_MemUpdateAllocMgt(u32 v_mid, u32 v_actualSize,void* v_pMemAddr)
 
     pAllocHead = (MEM_ALLOC_HEAD_S*)v_pMemAddr;
     pAllocHead->actualSize = v_actualSize;
+    pAllocHead->mid = v_mid;
     LIST_ADD_TAIL(&pAllocHead->node, &pMemStats->usedMemList);
     
     pMemStats->totalAllocTime++;
     pMemStats->curCumulSize += v_actualSize;
+    return;
+}
+
+
+void OS_MemUpdateFreeMgt(MEM_ALLOC_HEAD_S* v_pAllocHead)
+{
+    MEM_STATS_S *pMemStats = &g_memAllocMgt.allocStats[v_pAllocHead->mid];
+
+    LIST_NODE_DEL(&v_pAllocHead->node);
+    pMemStats->curCumulSize -= v_pAllocHead->actualSize;
+    pMemStats->totalFreeTime++;
     return;
 }
 
@@ -561,7 +701,7 @@ void* OS_MemAlloc(u32 v_mid, u32 v_memSize)
     }
 
     OS_MemUpdateAllocMgt(v_mid,actualSize,pAddr);
-    pAddr = (void*)((PTR)pAddr - (u32)OS_MemAlignToPtr(sizeof(MEM_ALLOC_HEAD_S)));
+    pAddr = (void*)((PTR)pAddr + (u32)OS_MemAlignToPtr(sizeof(MEM_ALLOC_HEAD_S)));
     
     return pAddr;
     
@@ -569,22 +709,27 @@ void* OS_MemAlloc(u32 v_mid, u32 v_memSize)
 
 void OS_MemFree(void *v_pMemAddr)
 {
+    u8 mid = 0;
     u8 poolId = 0;
+    u32 blkIdx = 0;
     u32 blkCnt = 0;
     MEM_ALLOC_HEAD_S *pAllocHead = NULL;
 
-    pAllocHead = (MEM_ALLOC_HEAD_S*)((PTR)v_pMemAddr + OS_MemAlignToPtr(sizeof(MEM_ALLOC_HEAD_S)));
+    pAllocHead = (MEM_ALLOC_HEAD_S*)((PTR)v_pMemAddr - OS_MemAlignToPtr(sizeof(MEM_ALLOC_HEAD_S)));
+    //printf("%s(line:%d) page free: %p \r\n", __func__, __LINE__, v_pMemAddr);
+    OS_MemUpdateFreeMgt(pAllocHead);
     
     poolId = OS_MemFindOptimalPagePool(pAllocHead->actualSize);
     if (MEM_INVALID_POOL != poolId)
     {
-        OS_MemPageFree(poolId, v_pMemAddr);
+        OS_MemPageFree(poolId, (void*)pAllocHead);
     }
     else
     {
         /*no need to care about align*/
+        blkIdx = (PTR)v_pMemAddr / g_memMgt.blkSize;
         blkCnt = pAllocHead->actualSize / g_memMgt.blkSize;
-        OS_MemBlkFree(blkCnt);
+        OS_MemBlkFree(blkIdx, blkCnt);
     }
 
     return;

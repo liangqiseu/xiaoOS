@@ -39,7 +39,17 @@ int main(int argc,char *argv[])
     if (1 == argc)
     {
 #ifndef WIN32
-        OS_MemInit();
+    u32 memLen = 0x7000;
+    void *pMemAddr = NULL;
+
+    pMemAddr = malloc(memLen);
+    if (NULL == pMemAddr)
+    {
+        return OS_ERR;
+    }
+    OS_MemCfgInit(pMemAddr, memLen, 0x1000);
+    OS_MemInit();
+    free(pMemAddr);
         printf("OS MEM INIT OK!\r\n");
 #else
         TEST_Start();

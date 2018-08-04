@@ -31,4 +31,5 @@ clean:
 	rm -f *.elf
 	rm -f *.map 
 	rm -f *.asm
-	rm -rf *.gcda *.gcno *.gcov	
+	rm -rf *.gcda *.gcno *.gcov *.info	
+	rm -rf ./gcovdir
