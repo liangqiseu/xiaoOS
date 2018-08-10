@@ -7,6 +7,20 @@
 #define MEM_INVALID_POOL 0xff
 #define MEM_PAGE_POOL_MAX_NUM 16
 
+
+typedef struct tagMEM_BLK_MGT_S
+{
+    LIST_NODE_S freeBlkListHead;
+    LIST_NODE_S unusedBlkNodeListHead;
+    void *pMemStartAddr;
+    void *pMemAlignStartAddr;
+    u32 memLen;
+    u32 blkSize;
+    u16 totalBlkCnt;
+    u16 freeBlkCnt;
+}MEM_BLK_MGT_S;
+
+
 typedef struct tagMEM_BLK_HEAD_S
 {
     LIST_NODE_S blkNode;
@@ -38,14 +52,8 @@ typedef struct tagMEM_PAGE_POOL_MGT_S
 
 typedef struct tagMEM_MGT_S
 {
-    LIST_NODE_S freeBlkListHead;
+    MEM_BLK_MGT_S blkMgt;
     MEM_PAGE_POOL_MGT_S poolMgt[MEM_PAGE_POOL_MAX_NUM];
-    void *pMemStartAddr;
-    void *pMemAlignStartAddr;
-    u32 memLen;
-    u32 blkSize;
-    u16 totalBlkCnt;
-    u16 freeBlkCnt;
 }MEM_MGT_S;
 
 
@@ -101,6 +109,7 @@ typedef enum tagMEM_RTN_E
 
 
 void OS_MemBlkFree(u32 v_blkIdx, u32 v_blkCnt);
+void* OS_MemBlkAlloc(u32 v_blkCnt);
 
 #endif
 
